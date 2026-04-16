@@ -1,0 +1,47 @@
+version: '3.9'
+
+services:
+  zenoh:
+    ports:
+      - "7447:7447"
+      - "7448:7448"
+      - "7449:7449"
+    environment:
+      - RUST_LOG=debug
+
+  neo4j:
+    ports:
+      - "7474:7474"
+      - "7687:7687"
+    environment:
+      NEO4J_AUTH: neo4j/mimi-password
+      NEO4J_dbms_logs_debug_level: DEBUG
+
+  redis:
+    ports:
+      - "6379:6379"
+
+  mimi-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    ports:
+      - "8080:8080"
+    environment:
+      RUST_LOG: debug
+      ZENOH_ENDPOINT: "tcp/zenoh:7449"
+      NEO4J_URI: "bolt://neo4j:7687"
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "mimi-password"
+      REDIS_URL: "redis://:mimi-redis-password@redis:6379"
+    volumes:
+      - ./crates/mimi-core:/app/src
+      - ./Cargo.toml:/app/Cargo.toml
+      - cargo-cache:/usr/local/cargo
+    stdin_open: true
+    tty: true
+
+volumes:
+  cargo-cache:
+    driver: local
