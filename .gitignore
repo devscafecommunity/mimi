@@ -1,3 +1,7 @@
+#=====================
+# C/C++ Generated Files
+#=====================
+
 # Prerequisites
 *.d
 
@@ -39,3 +43,190 @@
 
 # debug information files
 *.dwo
+
+# CMake build directories
+cmake-build-*/
+build/
+dist/
+
+#=====================
+# Rust Generated Files
+#=====================
+
+# Rust build artifacts
+/target/
+target/
+Cargo.lock
+**/*.rs.bk
+
+# IDE and Editor files for Rust projects
+*.rlib
+*.rmeta
+
+#=====================
+# Python Generated Files
+#=====================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+pip-wheel-metadata/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+env.bak/
+venv.bak/
+
+# mypy
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+#=====================
+# IDE and Editor Configs
+#=====================
+
+# Visual Studio Code
+.vscode/
+*.code-workspace
+.vs/
+
+# JetBrains IDEs
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.gradle/
+
+# Vim
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+*~
+.swp
+.swo
+
+# Emacs
+*~
+\#*\#
+.\#*
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Atom
+.atom/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+*.swp
+
+# Windows
+Thumbs.db
+Desktop.ini
+.windows/
+
+# Linux
+.directory
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+.#*
+
+#=====================
+# Build and CI/CD
+#=====================
+
+# GitHub Actions artifacts
+.github/workflows/logs/
+.github/cache/
+
+# CI/CD artifacts
+ci-artifacts/
+build-logs/
+test-results/
+
+#=====================
+# Project-Specific
+#=====================
+
+# Planning and documentation
+.planning/private/
+.planning/cache/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# OS and IDE
+.DS_Store
+Thumbs.db
+
+# Dependencies and package managers
+node_modules/
+package-lock.json
+yarn.lock
+.cargo/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
