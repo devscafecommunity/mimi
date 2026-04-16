@@ -1,0 +1,119 @@
+version: '3.9'
+
+services:
+  # Zenoh Message Bus - Low-latency pub/sub communication
+  zenoh:
+    image: eclipse/zenoh:latest
+    container_name: mimi-zenoh
+    ports:
+      - "7447:7447"  # REST API
+      - "7448:7448"  # WebSocket
+      - "7449:7449"  # Zenoh Protocol
+    environment:
+      - RUST_LOG=info
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7447/info"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - mimi-network
+    restart: unless-stopped
+
+  # Neo4j Graph Database - Memory management and contextual storage
+  neo4j:
+    image: neo4j:5.15-community
+    container_name: mimi-neo4j
+    ports:
+      - "7474:7474"  # HTTP
+      - "7687:7687"  # Bolt
+    environment:
+      NEO4J_AUTH: neo4j/mimi-password
+      NEO4J_PLUGINS: '["graph-data-science"]'
+      NEO4J_dbms_memory_heap_max__size: 512M
+      NEO4J_dbms_memory_heap_initial__size: 256M
+      NEO4J_dbms_memory_pagecache_size: 256M
+    volumes:
+      - neo4j-data:/var/lib/neo4j/data
+      - neo4j-logs:/var/lib/neo4j/logs
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:7474"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - mimi-network
+    restart: unless-stopped
+
+  # Redis Cache - Fast in-memory caching for frequently accessed data
+  redis:
+    image: redis:7-alpine
+    container_name: mimi-redis
+    ports:
+      - "6379:6379"
+    command:
+      - redis-server
+      - --requirepass
+      - mimi-redis-password
+      - --maxmemory
+      - 256mb
+      - --maxmemory-policy
+      - allkeys-lru
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - mimi-network
+    restart: unless-stopped
+
+  # Mimi Core Service - Central orchestrator (built from Dockerfile)
+  mimi-core:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runtime
+    container_name: mimi-core
+    ports:
+      - "8080:8080"  # REST API (for future use)
+    environment:
+      RUST_LOG: info
+      ZENOH_ENDPOINT: "tcp/zenoh:7449"
+      NEO4J_URI: "bolt://neo4j:7687"
+      NEO4J_USER: "neo4j"
+      NEO4J_PASSWORD: "mimi-password"
+      REDIS_URL: "redis://:mimi-redis-password@redis:6379"
+    depends_on:
+      zenoh:
+        condition: service_healthy
+      neo4j:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - mimi-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+networks:
+  mimi-network:
+    driver: bridge
+
+volumes:
+  neo4j-data:
+    driver: local
+  neo4j-logs:
+    driver: local
+  redis-data:
+    driver: local
