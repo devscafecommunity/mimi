@@ -1,0 +1,36 @@
+# Rustfmt Configuration for MiMi Project
+
+# Maximum line length
+max_width = 100
+
+# Edition
+edition = "2021"
+
+# Formatting style
+hard_tabs = false
+tab_spaces = 4
+
+# Imports
+reorder_imports = true
+reorder_modules = true
+
+# Comments
+comment_width = 80
+wrap_comments = true
+
+# Functions
+fn_args_layout = "Tall"
+fn_single_line = false
+
+# Structures
+struct_literal_style = "Block"
+struct_literal_width = 18
+struct_trailing_comma = "Vertical"
+
+# Match expressions
+match_block_trailing_comma = true
+
+# Spaces
+space_after_colon = true
+space_before_colon = false
+spaces_around_ranges = false
