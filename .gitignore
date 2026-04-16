@@ -49,6 +49,27 @@ cmake-build-*/
 build/
 dist/
 
+# CMake files
+CMakeFiles/
+*.cmake
+CMakeCache.txt
+
+# Object files and libraries
+*.o
+*.a
+*.so*
+*.dylib
+*.dll
+*.lib
+
+# Executables
+*.exe
+*.out
+
+# IDE specific files
+.vscode/settings.json
+compile_commands.json
+
 #=====================
 # Rust Generated Files
 #=====================
