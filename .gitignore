@@ -63,6 +63,34 @@ Cargo.lock
 *.rlib
 *.rmeta
 
+# Rust documentation
+/target/doc/
+doc/
+
+# RustRover IDE
+.idea/
+*.iml
+
+# Procedural macro generated files
+#[derive()]
+**/*.expanded.rs
+
+# MSVC Windows builds of rustc generate these
+*.pdb
+
+# Clippy suggestions
+.clippy-warnings/
+
+# Test artifacts
+*.profraw
+*.profdata
+/tmp/
+
+# Cargo vendor directory
+vendor/
+.cargo/registry/
+.cargo/git/
+
 #=====================
 # Python Generated Files
 #=====================
