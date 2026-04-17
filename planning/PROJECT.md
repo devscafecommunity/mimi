@@ -25,8 +25,10 @@
 | [`modules/ECHIDNA.md`](modules/ECHIDNA.md) | Módulo Echidna — Skills Planner |
 | [`modules/RYZU.md`](modules/RYZU.md) | Módulo Ryzu — Processadores Modulares |
 | [`modules/PRISCILLA.md`](modules/PRISCILLA.md) | Módulo Priscilla — Ator Crítico |
+| [`modules/LILIANA.md`](modules/LILIANA.md) | Módulo Liliana — Presença Interativa |
 | [`modules/ODLAGUNA.md`](modules/ODLAGUNA.md) | Módulo Odlaguna — Moderador/Watchdog |
 | [`specs/BUS-PROTOCOL.md`](specs/BUS-PROTOCOL.md) | Protocolo do Message Bus |
+| [`specs/GATING-SYSTEM.md`](specs/GATING-SYSTEM.md) | Sistema de Roteamento Energético (3-Tier) |
 | [`specs/HEATMAP-ALGORITHM.md`](specs/HEATMAP-ALGORITHM.md) | Algoritmo de Heatmap da Pandora |
 | [`specs/SKILL-LIFECYCLE.md`](specs/SKILL-LIFECYCLE.md) | Ciclo de vida de uma Skill |
 
@@ -53,32 +55,42 @@
                          │ Linguagem Natural
                     ┌────▼────┐
                     │BEATRICE │  NLP Interface (Rust/C++)
-                    └────┬────┘  Converte intenção → Intent estruturado
-                         │
-                    ┌────▼────┐
-                    │  MIMI   │  Agentic Commander (Rust)
-                    │ CORE    │  Orquestrador central — roteamento e estado
-                    └─┬──┬──┬─┘
-          ┌───────────┘  │  └──────────────┐
-     ┌────▼────┐    ┌────▼────┐      ┌─────▼────┐
-     │ PANDORA │    │ODLAGUNA │      │  ECHIDNA  │
-     │(C++)    │    │(Rust)   │      │  (Rust)   │
-     │Memória  │    │Watchdog │      │Skills Lab │
-     │Neo4j    │    │Moderador│      │Rhai + WASM│
-     └────┬────┘    └────┬────┘      └─────┬─────┘
-          │              │                  │
-          └──────────────┴──────────┬───────┘
-                                    │
-                              ┌─────▼─────┐
-                              │   RYZU    │
-                              │ (C++/ASM) │
-                              │ Workers   │
-                              │  Docker   │
-                              └───────────┘
-                         ┌────────────────────┐
-                         │    MESSAGE BUS      │
-                         │  Zenoh + FlatBuffers│
-                         └────────────────────┘
+                    └──┬─┬────┘  Converte intenção → Intent estruturado
+                  ┌─────┘ │
+          ┌───────▼───────▼────────────┐
+          │   GATING SYSTEM (3-Tier)   │
+          │  Roteamento energético     │
+          ├────────────────────────────┤
+          │ Tier 1: Liliana (Reflex)   │
+          │ Tier 2: Skills (Automated) │
+          │ Tier 3: Full Pipeline      │
+          └────────┬────────────────────┘
+                   │
+        ┌──────────┼───────────────┐
+        │          │               │
+    ┌───▼────┐ ┌──▼──┐        ┌───▼─────┐
+    │LILIANA │ │MIMI │        │PRISCILLA│
+    │(Rust)  │ │CORE │        │ (Rust)  │
+    │Mood+   │ │Orch.│        │Crítica  │
+    │Cache   │ │Mux  │        │Motiv.  │
+    └────┬───┘ └──┬──┘        └────┬────┘
+         │        └─────┬──────────┘
+         │              │
+    ┌────▼──┐    ┌────▼────┐
+    │Message│────│ PANDORA │    
+    │Bus    │    │ (C++)   │    
+    │Zenoh  │    │Memória  │    
+    │       │    │Neo4j    │
+    └────┬──┘    └────┬────┘
+         │            │
+    ┌────┴────┬───────┴────┬──────────┐
+    │          │           │          │
+┌───▼────┐ ┌──▼──┐  ┌─────▼────┐ ┌──▼─────┐
+│ODLAGUNA│ │ECHIDNA│  │   RYZU    │ │Adapters│
+│(Rust)  │ │(Rust)│  │ (C++/ASM) │ │(Cloud) │
+│Watchdog│ │Skills│  │ Workers   │ │Gemini  │
+│QA      │ │Lab   │  │ Docker    │ │Ollama  │
+└────────┘ └──────┘  └───────────┘ └────────┘
 ```
 
 ### Tabela de Módulos
@@ -91,6 +103,7 @@
 | **Echidna** | Rust | Criação de Skills (Rhai + WASM) | [`modules/ECHIDNA.md`](modules/ECHIDNA.md) |
 | **Ryzu** | C++/ASM | Execução isolada Docker, workers | [`modules/RYZU.md`](modules/RYZU.md) |
 | **Priscilla** | Rust | Análise crítica, racionalidade, metacognição | [`modules/PRISCILLA.md`](modules/PRISCILLA.md) |
+| **Liliana** | Rust/C++ | Presença interativa, mood state, cache reflex | [`modules/LILIANA.md`](modules/LILIANA.md) |
 | **Odlaguna** | Rust | QA, Watchdog, Circuit Breaker, auditoria | [`modules/ODLAGUNA.md`](modules/ODLAGUNA.md) |
 
 ---

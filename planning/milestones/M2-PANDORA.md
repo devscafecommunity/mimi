@@ -17,6 +17,12 @@ Diferentemente de RAG tradicional (que recupera tudo), Pandora usa **decaimento 
 - Evitar "context flooding" que envenena LLMs
 - Economizar tokens e latência
 
+**Optimization Layer (M2 + M2.5):** Integra-se com o **Gating System** (roteador hierárquico 3-tier) que garante:
+- Tier 1 (Reflex): Liliana cache para pedidos triviais (~0 tokens)
+- Tier 2 (Automated): Beatrice + Skills para tarefas estruturadas (~50-100 tokens)
+- Tier 3 (Cognitive): Full pipeline para raciocínio complexo (~500+ tokens)
+Resultado: 70-80% economia em tokens vs. sem gating.
+
 ---
 
 ## Requisitos Funcionais (RF) Ativados
