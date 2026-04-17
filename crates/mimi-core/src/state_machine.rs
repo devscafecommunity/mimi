@@ -35,6 +35,7 @@ pub enum MimiState {
 /// State manager with thread-safe access
 pub struct StateManager {
     state: Arc<Mutex<MimiState>>,
+    component_health: Arc<Mutex<Option<ComponentHealthCheck>>>,
 }
 
 impl StateManager {
@@ -42,6 +43,7 @@ impl StateManager {
     pub fn new() -> Self {
         Self {
             state: Arc::new(Mutex::new(MimiState::Idle)),
+            component_health: Arc::new(Mutex::new(None)),
         }
     }
 
@@ -50,8 +52,39 @@ impl StateManager {
         *self.state.lock().unwrap()
     }
 
+    /// Update component health and trigger escalation if needed
+    pub fn update_component_health(&self, health: ComponentHealthCheck) -> Result<()> {
+        let mut health_guard = self.component_health.lock().unwrap();
+        *health_guard = Some(health);
+
+        if health.needs_recovery() {
+            drop(health_guard);
+            self.force_error_state(MimiState::Recovering);
+        } else if health.needs_degraded() {
+            drop(health_guard);
+            self.force_error_state(MimiState::Degraded);
+        }
+
+        Ok(())
+    }
+
     /// Transition to new state with validation
     pub fn transition_to(&self, new_state: MimiState) -> Result<()> {
+        let health_guard = self.component_health.lock().unwrap();
+
+        if let Some(health) = *health_guard {
+            if health.needs_recovery() {
+                drop(health_guard);
+                self.force_error_state(MimiState::Recovering);
+                return Ok(());
+            } else if health.needs_degraded() {
+                drop(health_guard);
+                self.force_error_state(MimiState::Degraded);
+                return Ok(());
+            }
+        }
+        drop(health_guard);
+
         let mut state = self.state.lock().unwrap();
         let current = *state;
 
@@ -106,6 +139,44 @@ pub struct ComponentHealth {
     pub latency_ms: u64,
     pub memory_usage_percent: u8,
     pub last_heartbeat_secs: u64,
+}
+
+/// Component health check with thresholds
+#[derive(Debug, Clone, Copy)]
+pub struct ComponentHealthCheck {
+    latency_ms: u64,
+    memory_percent: u8,
+    heartbeat_age_secs: u64,
+}
+
+impl ComponentHealthCheck {
+    const LATENCY_THRESHOLD_MS: u64 = 5000;
+    const MEMORY_THRESHOLD_PERCENT: u8 = 80;
+    const HEARTBEAT_THRESHOLD_SECS: u64 = 30;
+
+    pub fn new(latency_ms: u64, memory_percent: u8, heartbeat_age_secs: u64) -> Self {
+        Self {
+            latency_ms,
+            memory_percent,
+            heartbeat_age_secs,
+        }
+    }
+
+    pub fn is_healthy(&self) -> bool {
+        self.latency_ms <= Self::LATENCY_THRESHOLD_MS
+            && self.memory_percent <= Self::MEMORY_THRESHOLD_PERCENT
+            && self.heartbeat_age_secs <= Self::HEARTBEAT_THRESHOLD_SECS
+    }
+
+    pub fn needs_recovery(&self) -> bool {
+        self.heartbeat_age_secs > Self::HEARTBEAT_THRESHOLD_SECS
+    }
+
+    pub fn needs_degraded(&self) -> bool {
+        (self.latency_ms > Self::LATENCY_THRESHOLD_MS
+            || self.memory_percent > Self::MEMORY_THRESHOLD_PERCENT)
+            && self.heartbeat_age_secs <= Self::HEARTBEAT_THRESHOLD_SECS
+    }
 }
 
 /// State transition representation

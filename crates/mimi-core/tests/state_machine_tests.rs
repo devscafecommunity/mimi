@@ -1,7 +1,8 @@
 //! State Machine Unit Tests
 
 use mimi_core::state_machine::{
-    ComponentHealth, MimiState, StateManager, StateTransition, TransitionGuard,
+    ComponentHealth, ComponentHealthCheck, MimiState, StateManager, StateTransition,
+    TransitionGuard,
 };
 
 #[test]
@@ -86,4 +87,65 @@ fn test_transition_with_health_check() {
     let result = manager.check_and_transition(MimiState::Listening, &unhealthy);
     assert!(result.is_ok());
     assert_eq!(manager.current_state(), MimiState::Degraded);
+}
+
+#[test]
+fn test_component_health_check_is_healthy() {
+    use mimi_core::state_machine::ComponentHealthCheck;
+
+    let health = ComponentHealthCheck::new(100, 50, 5);
+    assert!(health.is_healthy());
+}
+
+#[test]
+fn test_component_health_check_unhealthy_latency() {
+    use mimi_core::state_machine::ComponentHealthCheck;
+
+    // Latency >5s = DEGRADED
+    let health = ComponentHealthCheck::new(6000, 50, 5);
+    assert!(!health.is_healthy());
+}
+
+#[test]
+fn test_component_health_check_unhealthy_memory() {
+    use mimi_core::state_machine::ComponentHealthCheck;
+
+    // Memory >80% = DEGRADED
+    let health = ComponentHealthCheck::new(100, 85, 5);
+    assert!(!health.is_healthy());
+}
+
+#[test]
+fn test_component_health_check_unhealthy_heartbeat() {
+    use mimi_core::state_machine::ComponentHealthCheck;
+
+    // Heartbeat missing >30s = RECOVERING
+    let health = ComponentHealthCheck::new(100, 50, 35);
+    assert!(!health.is_healthy());
+}
+
+#[test]
+fn test_health_monitoring_auto_degrade() {
+    let manager = StateManager::new();
+
+    let healthy = ComponentHealthCheck::new(100, 50, 5);
+    manager.update_component_health(healthy).unwrap();
+    manager.transition_to(MimiState::Listening).unwrap();
+    assert_eq!(manager.current_state(), MimiState::Listening);
+
+    let unhealthy = ComponentHealthCheck::new(6000, 50, 5);
+    manager.update_component_health(unhealthy).unwrap();
+
+    assert_eq!(manager.current_state(), MimiState::Degraded);
+}
+
+#[test]
+fn test_health_monitoring_auto_recovering() {
+    let manager = StateManager::new();
+
+    let unhealthy = ComponentHealthCheck::new(100, 50, 35);
+    manager.update_component_health(unhealthy).unwrap();
+    manager.transition_to(MimiState::Listening).unwrap();
+
+    assert_eq!(manager.current_state(), MimiState::Recovering);
 }
