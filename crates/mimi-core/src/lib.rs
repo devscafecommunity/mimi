@@ -6,9 +6,11 @@
 pub mod config;
 pub mod error;
 pub mod message;
+pub mod routing;
 pub mod serialization;
 
 pub use error::{Error, Result};
+pub use routing::{MessageRouter, RoutingError, Topic, TopicPattern};
 pub use serialization::{MessageSerializer, SerializationError};
 
 /// Core version
