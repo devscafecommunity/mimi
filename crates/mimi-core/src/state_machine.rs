@@ -4,8 +4,11 @@
 //! Provides async execution, guard conditions, error recovery, and message bus integration.
 
 use anyhow::{anyhow, Result};
+use chrono::{DateTime, Utc};
+use serde::{Deserialize, Serialize};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
+use uuid::Uuid;
 
 /// Mimi system states
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -252,5 +255,102 @@ impl TransitionGuard {
     /// Check if task timeout is within bounds
     pub fn check_task_timeout(timeout: &Duration, max: &Duration) -> bool {
         timeout <= max
+    }
+}
+
+/// Task priority levels
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+pub enum TaskPriority {
+    Low = 0,
+    Normal = 1,
+    High = 2,
+    Critical = 3,
+}
+
+/// Task types matching IntentType from schema.fbs
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum TaskType {
+    Query,
+    Execute,
+    SkillPublish,
+    StateUpdate,
+    MemoryUpdate,
+    ErrorReport,
+    Control,
+}
+
+/// Execution model for task processing
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ExecutionModel {
+    /// Synchronous blocking execution (<500ms expected)
+    Blocking,
+    /// Asynchronous with callback (>500ms expected)
+    Async,
+}
+
+/// Task representation with full lifecycle metadata
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Task {
+    pub id: Uuid,
+    pub task_type: TaskType,
+    pub name: String,
+    pub priority: TaskPriority,
+    pub payload: Vec<u8>,
+    pub timeout: Duration,
+    pub retries: u32,
+    pub max_retries: u32,
+    pub created_at: DateTime<Utc>,
+    pub execution_model: ExecutionModel,
+}
+
+impl Task {
+    /// Create new task with defaults
+    pub fn new(task_type: TaskType, name: &str) -> Self {
+        Self {
+            id: Uuid::new_v4(),
+            task_type,
+            name: name.to_string(),
+            priority: TaskPriority::Normal,
+            payload: Vec::new(),
+            timeout: Duration::from_secs(30),
+            retries: 0,
+            max_retries: 3,
+            created_at: Utc::now(),
+            execution_model: ExecutionModel::Async,
+        }
+    }
+
+    /// Set task priority (builder pattern)
+    pub fn with_priority(mut self, priority: TaskPriority) -> Self {
+        self.priority = priority;
+        self
+    }
+
+    /// Set timeout (builder pattern)
+    pub fn with_timeout(mut self, timeout: Duration) -> Self {
+        self.timeout = timeout;
+        self
+    }
+
+    /// Set payload (builder pattern)
+    pub fn with_payload(mut self, payload: Vec<u8>) -> Self {
+        self.payload = payload;
+        self
+    }
+
+    /// Set execution model (builder pattern)
+    pub fn with_execution_model(mut self, model: ExecutionModel) -> Self {
+        self.execution_model = model;
+        self
+    }
+
+    /// Check if task can be retried
+    pub fn can_retry(&self) -> bool {
+        self.retries < self.max_retries
+    }
+
+    /// Increment retry counter
+    pub fn increment_retry(&mut self) {
+        self.retries += 1;
     }
 }

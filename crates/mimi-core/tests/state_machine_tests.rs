@@ -149,3 +149,31 @@ fn test_health_monitoring_auto_recovering() {
 
     assert_eq!(manager.current_state(), MimiState::Recovering);
 }
+
+// ============================================================================
+// Task Tests
+// ============================================================================
+
+use mimi_core::state_machine::{ExecutionModel, Task, TaskPriority, TaskType};
+use std::time::Duration;
+
+#[test]
+fn test_task_creation_with_defaults() {
+    let task = Task::new(TaskType::Query, "test_task");
+
+    assert_eq!(task.task_type, TaskType::Query);
+    assert_eq!(task.priority, TaskPriority::Normal);
+    assert_eq!(task.retries, 0);
+    assert_eq!(task.max_retries, 3);
+    assert!(task.timeout.as_secs() == 30);
+}
+
+#[test]
+fn test_task_with_high_priority() {
+    let task = Task::new(TaskType::Execute, "critical_task")
+        .with_priority(TaskPriority::Critical)
+        .with_timeout(Duration::from_secs(60));
+
+    assert_eq!(task.priority, TaskPriority::Critical);
+    assert_eq!(task.timeout.as_secs(), 60);
+}
