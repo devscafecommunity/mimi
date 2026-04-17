@@ -42,14 +42,14 @@ async fn main() -> anyhow::Result<()> {
             if let Some(config_path) = config {
                 info!("Using config: {}", config_path);
             }
-        }
+        },
         Some(Commands::Version) => {
             println!("mimi {}", env!("CARGO_PKG_VERSION"));
-        }
+        },
         None => {
             println!("MiMi v{}", env!("CARGO_PKG_VERSION"));
             println!("Use --help for usage information");
-        }
+        },
     }
 
     Ok(())
