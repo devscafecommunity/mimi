@@ -1,0 +1,21 @@
+namespace MiMi.Protocol;
+
+table RuntimeMetrics {
+  start_time_ms: uint64;
+  end_time_ms: uint64;
+  duration_ms: uint32;
+  cpu_percent: float;
+  memory_mb: uint32;
+  tokens_input: uint32;
+  tokens_output: uint32;
+}
+
+table BudgetSnapshot {
+  tier1_used: uint32;
+  tier1_limit: uint32;
+  tier2_used: uint32;
+  tier2_limit: uint32;
+  tier3_used: uint32;
+  tier3_limit: uint32;
+  timestamp_ms: uint64;
+}
