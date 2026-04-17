@@ -3,9 +3,9 @@
 //! This module contains the fundamental components and trait definitions
 //! for the MiMi cognitive operating system.
 
+pub mod config;
 pub mod error;
 pub mod message;
-pub mod config;
 
 pub use error::{Error, Result};
 
