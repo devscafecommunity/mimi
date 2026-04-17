@@ -76,36 +76,36 @@ Structure: **Milestone → Phase → Tasks**
 
 ### M1.3: Mimi Core Engine (State Machine & Orchestration)
 
-**M1.3.1** Design Mimi state machine
+**M1.3.1** ✅ Design Mimi state machine
 - Define states: IDLE, LISTENING, PROCESSING, EXECUTING, ERROR, SHUTDOWN
 - Define state transitions and guard conditions
 - Document state-specific behavior and side effects
 
-**M1.3.2** Implement Mimi state machine in Rust
+**M1.3.2** ✅ Implement Mimi state machine in Rust
 - Use state pattern or enum-based state machine
 - Implement state handlers (entry, exit, internal actions)
 - Add logging at each state transition
 - Write unit tests for each state and transition
 
-**M1.3.3** Implement task queue & executor
+**M1.3.3** ✅ Implement task queue & executor
 - Create async task queue (tokio::mpsc::channel)
 - Implement task scheduling based on priority
 - Add timeout enforcement per task
 - Write tests for queue ordering and timeout handling
 
-**M1.3.4** Implement error handling & recovery
+**M1.3.4** ✅ Implement error handling & recovery
 - Define error types (network, timeout, validation, execution, module)
 - Implement error propagation through state machine
 - Add automatic recovery strategies (retry with backoff, circuit breaker)
 - Write tests for error scenarios
 
-**M1.3.5** Implement metrics & observability
+**M1.3.5** ✅ Implement metrics & observability
 - Add structured logging with tracing crate
 - Add metrics collection (task count, latency, error rates)
 - Integrate with Prometheus exporter (if monitoring required)
 - Write tests for log output and metrics
 
-**M1.3.6** Implement graceful shutdown
+**M1.3.6** ✅ Implement graceful shutdown
 - Add shutdown signal handling (SIGTERM, SIGINT)
 - Drain task queue and wait for running tasks
 - Close all connections cleanly
@@ -115,36 +115,36 @@ Structure: **Milestone → Phase → Tasks**
 
 ### M1.4: Beatrice CLI Interface
 
-**M1.4.1** Design Beatrice CLI argument parsing
+**M1.4.1** Design Beatrice CLI argument parsing (#212)
 - Define command structure (mimi [command] [args] [options])
 - Design help system and error messages
 - Plan command hierarchy (exec, query, config, debug)
 
-**M1.4.2** Implement Beatrice CLI core
+**M1.4.2** Implement Beatrice CLI core (#213)
 - Use clap or structopt for argument parsing
 - Implement command dispatch to handlers
 - Add colored output for readability
 - Write tests for all command parsing scenarios
 
-**M1.4.3** Implement Beatrice interactive REPL
+**M1.4.3** Implement Beatrice interactive REPL (#214)
 - Create prompt and input reading loop
 - Implement command history and completion
 - Add exit handling and session cleanup
 - Write tests for REPL state machine
 
-**M1.4.4** Implement Beatrice HTTP server
+**M1.4.4** Implement Beatrice HTTP server (#215)
 - Use actix-web or axum for HTTP framework
 - Define REST API endpoints (/query, /execute, /status)
 - Implement request validation and error responses
 - Write tests for each endpoint with mock Mimi backend
 
-**M1.4.5** Implement Beatrice WebSocket server
+**M1.4.5** Implement Beatrice WebSocket server (#216)
 - Use tokio-tungstenite or similar for WebSocket
 - Implement persistent client connections
 - Add subscription model for real-time updates
 - Write tests for WebSocket communication
 
-**M1.4.6** Connect Beatrice to Mimi core
+**M1.4.6** Connect Beatrice to Mimi core (#217)
 - Implement client-side message marshaling
 - Handle Mimi responses and surface to user
 - Implement streaming responses for long-running operations
@@ -154,33 +154,33 @@ Structure: **Milestone → Phase → Tasks**
 
 ### M1.5: Gemini AI Adapter
 
-**M1.5.1** Design pluggable AI adapter interface
+**M1.5.1** Design pluggable AI adapter interface (#218)
 - Define Adapter trait/protocol (initialize, invoke, cleanup)
 - Define request/response format for LLM calls
 - Plan configuration system for adapter parameters
 - Document extensibility points for future adapters
 
-**M1.5.2** Implement Gemini adapter
+**M1.5.2** Implement Gemini adapter (#219)
 - Use Google Cloud Generative AI library (Rust or HTTP client)
 - Implement connection pooling to Gemini API
 - Implement prompt templates and response parsing
 - Add API key management and error handling
 - Write tests with mock Gemini responses
 
-**M1.5.3** Implement Ollama adapter (local LLM)
+**M1.5.3** Implement Ollama adapter (local LLM) (#220)
 - Use Ollama HTTP API client
 - Implement model loading and caching
 - Implement streaming response handling
 - Add fallback to Gemini if Ollama unavailable
 - Write tests with local Ollama instance
 
-**M1.5.4** Implement adapter registry & discovery
+**M1.5.4** Implement adapter registry & discovery (#221)
 - Create adapter factory pattern
 - Implement configuration-driven adapter selection
 - Add adapter health checks and fallback logic
 - Write tests for adapter switching
 
-**M1.5.5** Implement adapter performance monitoring
+**M1.5.5** Implement adapter performance monitoring (#222)
 - Add latency tracking per adapter
 - Track API call success/error rates
 - Implement adaptive timeout adjustment
@@ -190,25 +190,25 @@ Structure: **Milestone → Phase → Tasks**
 
 ### M1.6: Integration & Testing
 
-**M1.6.1** Write end-to-end integration test suite (M1 components)
+**M1.6.1** Write end-to-end integration test suite (M1 components) (#223)
 - Test: CLI command → Message Bus → Mimi core → AI adapter → response
 - Test: HTTP request → Message Bus → Mimi core → response
 - Test: WebSocket connection → Message Bus → streaming responses
 - Test: Error scenarios (network failure, timeout, invalid input)
 
-**M1.6.2** Write performance benchmarks (M1 components)
+**M1.6.2** Write performance benchmarks (M1 components) (#224)
 - Benchmark message bus latency (publish/subscribe/request-reply)
 - Benchmark FlatBuffers serialization/deserialization
 - Benchmark Mimi state machine throughput
 - Benchmark Beatrice CLI startup time
 
-**M1.6.3** Write documentation for M1
+**M1.6.3** Write documentation for M1 (#225)
 - API documentation (FlatBuffers schema, Mimi core API, Beatrice endpoints)
 - Architecture diagrams and sequence diagrams
 - Installation and quickstart guide
 - Troubleshooting guide for common issues
 
-**M1.6.4** Prepare M1 for deployment
+**M1.6.4** Prepare M1 for deployment (#226)
 - Build Docker image for Mimi core
 - Create docker-compose for M1 (Zenoh, Mimi, Beatrice server)
 - Write deployment checklist and run procedures

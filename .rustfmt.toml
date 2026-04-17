@@ -14,23 +14,8 @@ tab_spaces = 4
 reorder_imports = true
 reorder_modules = true
 
-# Comments
-comment_width = 80
-wrap_comments = true
-
 # Functions
-fn_args_layout = "Tall"
-fn_single_line = false
-
-# Structures
-struct_literal_style = "Block"
-struct_literal_width = 18
-struct_trailing_comma = "Vertical"
+fn_params_layout = "Tall"
 
 # Match expressions
 match_block_trailing_comma = true
-
-# Spaces
-space_after_colon = true
-space_before_colon = false
-spaces_around_ranges = false

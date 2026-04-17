@@ -1,0 +1,41 @@
+# MiMi Zenoh Configuration - Phase 1 (Foundation)
+# Localhost broker for intra-node communication
+
+id = "mimi-router"
+mode = "peer"
+
+admin:
+  endpoint = "tcp/127.0.0.1:7888"
+
+timestamping:
+  enabled = true
+  drop_future_timestamp = false
+
+transport:
+  default:
+    timeout_ms = 5000
+    max_message_size = 4194304
+    link_rx_buffer_size = 65536
+    
+router:
+  announcements:
+    enabled = true
+    interval_ms = 1000
+
+down_links:
+  - type = "tcp"
+    listen = "tcp/127.0.0.1:7447"
+  
+  - type = "udp"
+    listen = "udp/127.0.0.1:7448"
+
+plugins:
+  storage_manager:
+    storages:
+      mimi_deadletter:
+        directory = "/tmp/zenoh_storage"
+        is_persistent = false
+        
+plugins:
+  rest:
+    http_port = 8000

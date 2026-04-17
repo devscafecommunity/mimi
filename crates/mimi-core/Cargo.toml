@@ -19,6 +19,7 @@ uuid.workspace = true
 chrono.workspace = true
 log.workspace = true
 num_cpus = "1.16"
+rand = "0.8"
 
 [dev-dependencies]
 tokio-test = "0.4"

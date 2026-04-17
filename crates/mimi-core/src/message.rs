@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -8,6 +9,15 @@ pub struct Message {
     pub source: String,
     pub destination: String,
     pub payload: serde_json::Value,
+}
+
+/// Task message for Zenoh bus
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TaskMessage {
+    pub id: String,
+    pub payload: String,
+    pub priority: u8,
+    pub created_at: DateTime<Utc>,
 }
 
 impl Message {
