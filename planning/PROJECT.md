@@ -24,6 +24,7 @@
 | [`modules/PANDORA.md`](modules/PANDORA.md) | Módulo Pandora — Memória em Grafos |
 | [`modules/ECHIDNA.md`](modules/ECHIDNA.md) | Módulo Echidna — Skills Planner |
 | [`modules/RYZU.md`](modules/RYZU.md) | Módulo Ryzu — Processadores Modulares |
+| [`modules/PRISCILLA.md`](modules/PRISCILLA.md) | Módulo Priscilla — Ator Crítico |
 | [`modules/ODLAGUNA.md`](modules/ODLAGUNA.md) | Módulo Odlaguna — Moderador/Watchdog |
 | [`specs/BUS-PROTOCOL.md`](specs/BUS-PROTOCOL.md) | Protocolo do Message Bus |
 | [`specs/HEATMAP-ALGORITHM.md`](specs/HEATMAP-ALGORITHM.md) | Algoritmo de Heatmap da Pandora |
@@ -89,6 +90,7 @@
 | **Pandora** | C++ | Grafos Neo4j, Heatmap, contexto ST/LT | [`modules/PANDORA.md`](modules/PANDORA.md) |
 | **Echidna** | Rust | Criação de Skills (Rhai + WASM) | [`modules/ECHIDNA.md`](modules/ECHIDNA.md) |
 | **Ryzu** | C++/ASM | Execução isolada Docker, workers | [`modules/RYZU.md`](modules/RYZU.md) |
+| **Priscilla** | Rust | Análise crítica, racionalidade, metacognição | [`modules/PRISCILLA.md`](modules/PRISCILLA.md) |
 | **Odlaguna** | Rust | QA, Watchdog, Circuit Breaker, auditoria | [`modules/ODLAGUNA.md`](modules/ODLAGUNA.md) |
 
 ---

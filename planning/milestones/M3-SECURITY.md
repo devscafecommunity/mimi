@@ -1,15 +1,18 @@
-# M3: Segurança e Supervisão (Odlaguna)
+# M3: Segurança e Supervisão (Odlaguna & Priscilla)
 
-> **Milestone Objetivo:** Implementar watchdog, timeouts e isolamento de segurança  
+> **Milestone Objetivo:** Implementar watchdog, timeouts, isolamento de segurança e camada crítica de racionalidade  
 > **Status:** 🟡 Bloqueado por M1+M2  
-> **Duração Estimada:** 8 semanas  
+> **Duração Estimada:** 12 semanas (8 Odlaguna + 4 Priscilla)  
 > **Dependências:** M1 (Message Bus) + M2 (Pandora)  
 
 ---
 
 ## Visão Geral
 
-Milestone 3 constrói o sistema de segurança e supervisão do MiMi. **Odlaguna** é o guardião que:
+Milestone 3 constrói o sistema de supervisão, segurança e governança do MiMi. Duas guardiãs trabalham em conselho:
+
+### Odlaguna: O Executor de Segurança
+**"É seguro? Pode executar?"** — Autoridade executiva com poder de veto absoluto.
 
 - **Supervisiona** todas as mensagens no Bus (não-bloqueante)
 - **Aplica timeouts** (Lease/Deadline) a tarefas para evitar hanging
@@ -18,16 +21,30 @@ Milestone 3 constrói o sistema de segurança e supervisão do MiMi. **Odlaguna*
 - **Valida código** gerado (AST parsing) antes de deploy
 - **Audit Trail** imutável de todas as operações
 
----
+### Priscilla: A Advocada do Diabo
+**"É inteligente? Existe um jeito melhor?"** — Consultora estratégica sem poder de veto, força Mimi a pensar.
 
-## Requisitos Funcionais (RF) Ativados
+- **Questiona a necessidade** de cada tarefa (detecção de loops, redundância)
+- **Analisa custo-benefício** (tokens, CPU, memória vs. resultado esperado)
+- **Detecta viés e alucinação** da Beatrice (clarificação de intent antes de planejar)
+- **Refina planos** (sugere caminhos mais curtos, parallelização, reutilização de skills)
+- **Aprende de falhas** (integração com Pandora para padrões históricos)
+- **Metacognição**: Força o sistema a ser reflexivo, não impulsivo
 
-| RF | Descrição | Prioridade |
-|----|-----------|-----------|
-| **RF-6** | Supervisão e Watchdog (Odlaguna) | 🔴 Bloqueante |
-| **RF-5** | Execução Segura (Ryzu + Docker) | 🟡 Alta |
+### Hierarquia de Decisão
+```
+Beatrice (Captura Desejo) 
+  ↓
+Mimi (Elabora Estratégia)
+  ↓
+Priscilla (Questiona Lógica — Advisoria)
+  ↓
+Odlaguna (Verifica Segurança — VETO)
+  ↓
+Ryzu/Echidna (Executa)
+```
 
----
+**Diferença crítica:** Priscilla **nunca bloqueia**, apenas **questiona**. Odlaguna bloqueia se necessário.
 
 ## Tarefas por Hierarquia
 
@@ -669,3 +686,89 @@ LIMIT 1000
 - Volta a: [`REQUIREMENTS.md#RF-6`](../REQUIREMENTS.md#rf-6-supervisão-e-watchdog-odlaguna)
 - Anterior: [`milestones/M2-PANDORA.md`](M2-PANDORA.md)
 - Próximo: [`milestones/M4-ECHIDNA.md`](M4-ECHIDNA.md)
+
+---
+
+## Tasks para Priscilla (T3.5+)
+
+### T3.5: Priscilla - Message Monitor & Critique Framework (🟡 ALTA)
+**Bloqueado por:** T3.0 (Docker setup), M2 (Pandora integração)  
+**Bloqueia:** T3.6, T3.7  
+
+**Descrição:**
+- Implementar async subscriber para task/draft topic
+- Critique analysis engine com 5 analyzers:
+  1. Necessity checker (loop/redundancy detection)
+  2. Cost-benefit analyzer (token/CPU budget)
+  3. Intent validator (bias detection from Beatrice)
+  4. Failure pattern analyzer (Pandora link)
+  5. Plan optimization suggester (skill reuse, parallelization)
+- Message protocol: TaskDraftMessage → CritiqueCommentaryMessage
+- Configuration system (priscilla-rules.toml with cynicism levels)
+
+**Dependências Técnicas:**
+- Zenoh/NATS subscriber (via bus crate)
+- Neo4j query interface (read-only access to Pandora)
+- Tokio async runtime
+- Serde for JSON serialization
+
+**Artefatos:**
+- `priscilla/src/lib.rs` — Core module
+- `priscilla/src/analyzers/mod.rs` — All 5 analyzers
+- `priscilla/src/message_protocol.rs` — Message types
+- `priscilla-rules.toml` — Configuration template
+- `priscilla/tests/` — Comprehensive test suite (50+ scenarios)
+
+### T3.6: Priscilla - Failure Pattern Integration (🟡 ALTA)
+**Bloqueado por:** T3.5, M2 finalized  
+
+**Descrição:**
+- Integrate with Pandora's read-only failure indices
+- Query builder for similar task matching (semantic similarity)
+- Temporal weighting of failures (recent failures > old failures)
+- Commentary generation from pattern analysis
+- Performance optimization (< 20ms Pandora queries)
+
+**Dependências:**
+- Pandora Neo4j schema finalized
+- Vector similarity implemented in Pandora
+- Cached query results (avoid latency)
+
+**Artefatos:**
+- `priscilla/src/pandora_client.rs` — Read-only Pandora queries
+- `priscilla/src/failure_patterns.rs` — Pattern matching logic
+- Neo4j query templates (in documentation)
+
+### T3.7: Priscilla - Cynicism Controller & Configuration (🟢 MÉDIA)
+**Bloqueado por:** T3.5  
+
+**Descrição:**
+- Implement risk level parametrization (CREATIVE, OPERATIONAL, CRITICAL)
+- Dynamic scrutiny adjustment based on task risk
+- Configuration hot-reloading (no restart needed)
+- Metrics/observability (override rates, improvement estimates)
+
+**Dependências:**
+- T3.5 analyzers implemented
+- Prometheus integration (metrics export)
+
+**Artefatos:**
+- `priscilla/src/cynicism_controller.rs` — Risk level logic
+- `priscilla/src/metrics.rs` — Prometheus metrics
+- Config parsing and hot-reload logic
+
+### T3.8: Priscilla - Integration Testing & Documentation (🟢 MÉDIA)
+**Bloqueado by:** T3.5, T3.6, T3.7  
+
+**Descrição:**
+- Full integration tests (Beatrice → Mimi → Priscilla → Odlaguna → Ryzu pipeline)
+- Comprehensive operator guide (how to tune cynicism levels)
+- API documentation (message protocol, configuration options)
+- Behavioral examples (creative, operational, critical tasks)
+
+**Artefatos:**
+- `integration-tests/priscilla_full_flow.rs`
+- `docs/priscilla-operator-guide.md`
+- `docs/priscilla-api.md`
+- Example critique logs (real scenarios)
+
