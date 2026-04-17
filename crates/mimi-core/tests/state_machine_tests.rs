@@ -275,3 +275,54 @@ fn test_circuit_breaker_closes_on_success() {
     breaker.record_success();
     assert_eq!(breaker.state(), CircuitState::Closed);
 }
+
+// ============================================================================
+// Async Task Execution Tests
+// ============================================================================
+
+use mimi_core::state_machine::ExecutionModel;
+
+#[tokio::test]
+async fn test_execute_task_blocking_mode() {
+    let manager = StateManager::new();
+    manager.transition_to(MimiState::Listening).unwrap();
+    manager.transition_to(MimiState::Processing).unwrap();
+
+    let task =
+        Task::new(TaskType::Query, "fast_query").with_execution_model(ExecutionModel::Blocking);
+
+    manager.enqueue_task(task).unwrap();
+
+    let result = manager.execute_next_task().await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_execute_task_async_mode() {
+    let manager = StateManager::new();
+    manager.transition_to(MimiState::Listening).unwrap();
+    manager.transition_to(MimiState::Processing).unwrap();
+
+    let task = Task::new(TaskType::Execute, "slow_exec")
+        .with_execution_model(ExecutionModel::Async)
+        .with_timeout(Duration::from_secs(5));
+
+    manager.enqueue_task(task).unwrap();
+
+    let result = manager.execute_next_task().await;
+    assert!(result.is_ok());
+}
+
+#[tokio::test]
+async fn test_task_timeout_handling() {
+    let manager = StateManager::new();
+    manager.transition_to(MimiState::Listening).unwrap();
+    manager.transition_to(MimiState::Processing).unwrap();
+
+    let task = Task::new(TaskType::Execute, "timeout_task").with_timeout(Duration::from_millis(10));
+
+    manager.enqueue_task(task).unwrap();
+
+    let result = manager.execute_next_task().await;
+    assert!(result.is_err());
+}

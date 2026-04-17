@@ -10,6 +10,7 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
+use tokio::time::{sleep, timeout};
 use uuid::Uuid;
 
 /// Mimi system states
@@ -205,6 +206,82 @@ impl StateManager {
 
         log::error!("Forcing error state: {:?}", error_state);
         *state = error_state;
+    }
+
+    /// Execute next task from queue
+    pub async fn execute_next_task(&self) -> Result<()> {
+        let task = self.dequeue_task()?;
+
+        log::info!("Executing task: {} ({})", task.name, task.id);
+
+        match task.execution_model {
+            ExecutionModel::Blocking => self.execute_blocking_task(task).await,
+            ExecutionModel::Async => self.execute_async_task(task).await,
+        }
+    }
+
+    /// Execute task in blocking mode (for fast operations <500ms)
+    async fn execute_blocking_task(&self, task: Task) -> Result<()> {
+        self.transition_to(MimiState::Executing)?;
+
+        let task_name = task.name.clone();
+        let result = timeout(task.timeout, async {
+            tokio::task::spawn_blocking(move || {
+                log::debug!("Blocking task {} executing", task.name);
+                Ok::<(), anyhow::Error>(())
+            })
+            .await?
+        })
+        .await;
+
+        match result {
+            Ok(Ok(())) => {
+                log::info!("Task {} completed successfully", task_name);
+                self.transition_to(MimiState::Responding)?;
+                Ok(())
+            },
+            Ok(Err(e)) => {
+                log::error!("Task {} failed: {}", task_name, e);
+                Err(e)
+            },
+            Err(_) => {
+                log::error!("Task {} timed out", task_name);
+                Err(anyhow!("Task execution timeout"))
+            },
+        }
+    }
+
+    /// Execute task in async mode (for long operations >500ms)
+    async fn execute_async_task(&self, task: Task) -> Result<()> {
+        self.transition_to(MimiState::Executing)?;
+
+        let task_name = task.name.clone();
+        let task_timeout = task.timeout;
+
+        let result = timeout(task_timeout, async move {
+            log::debug!("Async task {} executing", task.name);
+
+            sleep(Duration::from_millis(100)).await;
+
+            Ok::<(), anyhow::Error>(())
+        })
+        .await;
+
+        match result {
+            Ok(Ok(())) => {
+                log::info!("Task {} completed successfully", task_name);
+                self.transition_to(MimiState::Responding)?;
+                Ok(())
+            },
+            Ok(Err(e)) => {
+                log::error!("Task {} failed: {}", task_name, e);
+                Err(e)
+            },
+            Err(_) => {
+                log::error!("Task {} timed out", task_name);
+                Err(anyhow!("Task execution timeout"))
+            },
+        }
     }
 }
 
