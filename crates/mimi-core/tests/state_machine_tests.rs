@@ -177,3 +177,44 @@ fn test_task_with_high_priority() {
     assert_eq!(task.priority, TaskPriority::Critical);
     assert_eq!(task.timeout.as_secs(), 60);
 }
+
+// ============================================================================
+// Task Queue Tests
+// ============================================================================
+
+#[test]
+fn test_task_queue_fifo_within_priority() {
+    let manager = StateManager::new();
+
+    let task1 = Task::new(TaskType::Query, "query1").with_priority(TaskPriority::Normal);
+    let task2 = Task::new(TaskType::Execute, "exec1").with_priority(TaskPriority::High);
+    let task3 = Task::new(TaskType::Query, "query2").with_priority(TaskPriority::Normal);
+
+    manager.enqueue_task(task1.clone()).unwrap();
+    manager.enqueue_task(task2.clone()).unwrap();
+    manager.enqueue_task(task3.clone()).unwrap();
+
+    let dequeued = manager.dequeue_task().unwrap();
+    assert_eq!(dequeued.name, "exec1");
+
+    let dequeued = manager.dequeue_task().unwrap();
+    assert_eq!(dequeued.name, "query1");
+
+    let dequeued = manager.dequeue_task().unwrap();
+    assert_eq!(dequeued.name, "query2");
+}
+
+#[test]
+fn test_task_queue_capacity_limit() {
+    let manager = StateManager::with_capacity(2);
+
+    let task1 = Task::new(TaskType::Query, "task1");
+    let task2 = Task::new(TaskType::Query, "task2");
+    let task3 = Task::new(TaskType::Query, "task3");
+
+    assert!(manager.enqueue_task(task1).is_ok());
+    assert!(manager.enqueue_task(task2).is_ok());
+
+    let result = manager.enqueue_task(task3);
+    assert!(result.is_err());
+}

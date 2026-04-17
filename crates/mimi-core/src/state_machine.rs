@@ -6,6 +6,8 @@
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use uuid::Uuid;
@@ -35,24 +37,100 @@ pub enum MimiState {
     Shutdown,
 }
 
+/// Task wrapper for priority queue ordering
+#[derive(Clone)]
+struct PrioritizedTask {
+    task: Task,
+    sequence: u64,
+}
+
+impl PartialEq for PrioritizedTask {
+    fn eq(&self, other: &Self) -> bool {
+        self.task.priority == other.task.priority && self.sequence == other.sequence
+    }
+}
+
+impl Eq for PrioritizedTask {}
+
+impl PartialOrd for PrioritizedTask {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for PrioritizedTask {
+    fn cmp(&self, other: &Self) -> Ordering {
+        match self.task.priority.cmp(&other.task.priority) {
+            Ordering::Equal => other.sequence.cmp(&self.sequence),
+            other_ord => other_ord,
+        }
+    }
+}
+
 /// State manager with thread-safe access
 pub struct StateManager {
     state: Arc<Mutex<MimiState>>,
     component_health: Arc<Mutex<Option<ComponentHealthCheck>>>,
+    task_queue: Arc<Mutex<BinaryHeap<PrioritizedTask>>>,
+    queue_capacity: usize,
+    sequence_counter: Arc<Mutex<u64>>,
 }
 
 impl StateManager {
     /// Create new state manager starting in Idle state
     pub fn new() -> Self {
+        Self::with_capacity(1000)
+    }
+
+    /// Create state manager with custom queue capacity
+    pub fn with_capacity(capacity: usize) -> Self {
         Self {
             state: Arc::new(Mutex::new(MimiState::Idle)),
             component_health: Arc::new(Mutex::new(None)),
+            task_queue: Arc::new(Mutex::new(BinaryHeap::new())),
+            queue_capacity: capacity,
+            sequence_counter: Arc::new(Mutex::new(0)),
         }
     }
 
     /// Get current state
     pub fn current_state(&self) -> MimiState {
         *self.state.lock().unwrap()
+    }
+
+    /// Enqueue task with priority ordering
+    pub fn enqueue_task(&self, task: Task) -> Result<()> {
+        let mut queue = self.task_queue.lock().unwrap();
+
+        if queue.len() >= self.queue_capacity {
+            return Err(anyhow!(
+                "Task queue full (capacity: {})",
+                self.queue_capacity
+            ));
+        }
+
+        let mut counter = self.sequence_counter.lock().unwrap();
+        let sequence = *counter;
+        *counter += 1;
+
+        queue.push(PrioritizedTask { task, sequence });
+
+        Ok(())
+    }
+
+    /// Dequeue highest priority task (FIFO within priority)
+    pub fn dequeue_task(&self) -> Result<Task> {
+        let mut queue = self.task_queue.lock().unwrap();
+
+        queue
+            .pop()
+            .map(|pt| pt.task)
+            .ok_or_else(|| anyhow!("Task queue is empty"))
+    }
+
+    /// Get current queue size
+    pub fn queue_size(&self) -> usize {
+        self.task_queue.lock().unwrap().len()
     }
 
     /// Update component health and trigger escalation if needed
