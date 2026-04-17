@@ -374,3 +374,255 @@ async fn test_execute_with_retry_success() {
     let result = manager.execute_with_retry().await;
     assert!(result.is_ok());
 }
+
+// ============================================================================
+// Additional State Tests
+// ============================================================================
+
+#[test]
+fn test_all_state_variants() {
+    let states = vec![
+        MimiState::Idle,
+        MimiState::Listening,
+        MimiState::Processing,
+        MimiState::Executing,
+        MimiState::Responding,
+        MimiState::Degraded,
+        MimiState::Recovering,
+        MimiState::FailedComponent,
+        MimiState::CriticalError,
+        MimiState::Shutdown,
+    ];
+
+    assert_eq!(states.len(), 10);
+}
+
+#[test]
+fn test_state_equality() {
+    assert_eq!(MimiState::Idle, MimiState::Idle);
+    assert_ne!(MimiState::Idle, MimiState::Listening);
+}
+
+#[test]
+fn test_all_valid_normal_flow_transitions() {
+    let transitions = vec![
+        (MimiState::Idle, MimiState::Listening),
+        (MimiState::Listening, MimiState::Processing),
+        (MimiState::Processing, MimiState::Executing),
+        (MimiState::Executing, MimiState::Responding),
+        (MimiState::Responding, MimiState::Idle),
+    ];
+
+    for (from, to) in transitions {
+        let t = StateTransition::new(from, to);
+        assert!(t.is_valid(), "Expected {:?} -> {:?} to be valid", from, to);
+    }
+}
+
+#[test]
+fn test_error_escalation_from_any_state() {
+    let states = vec![
+        MimiState::Idle,
+        MimiState::Listening,
+        MimiState::Processing,
+        MimiState::Executing,
+        MimiState::Responding,
+    ];
+
+    for state in states {
+        let t1 = StateTransition::new(state, MimiState::Degraded);
+        assert!(t1.is_valid());
+
+        let t2 = StateTransition::new(state, MimiState::FailedComponent);
+        assert!(t2.is_valid());
+
+        let t3 = StateTransition::new(state, MimiState::CriticalError);
+        assert!(t3.is_valid());
+    }
+}
+
+#[test]
+fn test_recovery_paths() {
+    let t1 = StateTransition::new(MimiState::Degraded, MimiState::Recovering);
+    assert!(t1.is_valid());
+
+    let t2 = StateTransition::new(MimiState::FailedComponent, MimiState::Recovering);
+    assert!(t2.is_valid());
+
+    let t3 = StateTransition::new(MimiState::Recovering, MimiState::Idle);
+    assert!(t3.is_valid());
+}
+
+#[test]
+fn test_invalid_transitions() {
+    let invalid = vec![
+        (MimiState::Idle, MimiState::Processing),
+        (MimiState::Idle, MimiState::Executing),
+        (MimiState::Listening, MimiState::Responding),
+        (MimiState::Processing, MimiState::Idle),
+    ];
+
+    for (from, to) in invalid {
+        let t = StateTransition::new(from, to);
+        assert!(
+            !t.is_valid(),
+            "Expected {:?} -> {:?} to be invalid",
+            from,
+            to
+        );
+    }
+}
+
+#[test]
+fn test_guard_all_thresholds() {
+    // All healthy
+    let h1 = ComponentHealth {
+        latency_ms: 5000,
+        memory_usage_percent: 80,
+        last_heartbeat_secs: 30,
+    };
+    assert!(TransitionGuard::check_component_health(&h1));
+
+    // Just over latency threshold
+    let h2 = ComponentHealth {
+        latency_ms: 5001,
+        memory_usage_percent: 80,
+        last_heartbeat_secs: 30,
+    };
+    assert!(!TransitionGuard::check_component_health(&h2));
+
+    // Just over memory threshold
+    let h3 = ComponentHealth {
+        latency_ms: 5000,
+        memory_usage_percent: 81,
+        last_heartbeat_secs: 30,
+    };
+    assert!(!TransitionGuard::check_component_health(&h3));
+
+    // Just over heartbeat threshold
+    let h4 = ComponentHealth {
+        latency_ms: 5000,
+        memory_usage_percent: 80,
+        last_heartbeat_secs: 31,
+    };
+    assert!(!TransitionGuard::check_component_health(&h4));
+}
+
+#[test]
+fn test_guard_queue_capacity() {
+    assert!(TransitionGuard::check_queue_capacity(99, 100));
+    assert!(!TransitionGuard::check_queue_capacity(100, 100));
+}
+
+#[test]
+fn test_guard_task_timeout() {
+    let timeout1 = Duration::from_secs(30);
+    let timeout2 = Duration::from_secs(60);
+    let max = Duration::from_secs(60);
+
+    assert!(TransitionGuard::check_task_timeout(&timeout1, &max));
+    assert!(TransitionGuard::check_task_timeout(&timeout2, &max));
+    assert!(!TransitionGuard::check_task_timeout(
+        &Duration::from_secs(61),
+        &max
+    ));
+}
+
+#[test]
+fn test_task_builder_chain() {
+    let task = Task::new(TaskType::Execute, "complex_task")
+        .with_priority(TaskPriority::High)
+        .with_timeout(Duration::from_secs(120))
+        .with_execution_model(ExecutionModel::Async)
+        .with_payload(vec![1, 2, 3]);
+
+    assert_eq!(task.priority, TaskPriority::High);
+    assert_eq!(task.timeout.as_secs(), 120);
+    assert_eq!(task.execution_model, ExecutionModel::Async);
+    assert_eq!(task.payload, vec![1, 2, 3]);
+}
+
+#[test]
+fn test_task_can_retry() {
+    let mut task = Task::new(TaskType::Query, "test");
+
+    assert!(task.can_retry());
+
+    task.increment_retry();
+    task.increment_retry();
+    task.increment_retry();
+
+    assert!(!task.can_retry());
+}
+
+#[test]
+fn test_retry_strategy_progression() {
+    let strategy = RetryStrategy::exponential();
+
+    let delays: Vec<u64> = (0..5)
+        .map(|i| strategy.next_delay(i).as_millis() as u64)
+        .collect();
+
+    assert_eq!(delays, vec![100, 200, 400, 800, 1600]);
+}
+
+#[test]
+fn test_retry_strategy_max_cap() {
+    let strategy = RetryStrategy::exponential();
+
+    let delay = strategy.next_delay(20);
+    assert_eq!(delay.as_millis(), 5000);
+}
+
+#[test]
+fn test_circuit_breaker_initial_state() {
+    let breaker = CircuitBreaker::new(3, Duration::from_secs(10));
+    assert_eq!(breaker.state(), CircuitState::Closed);
+    assert!(breaker.allow_request());
+}
+
+#[test]
+fn test_circuit_breaker_blocks_when_open() {
+    let breaker = CircuitBreaker::new(1, Duration::from_secs(10));
+
+    breaker.record_failure();
+
+    assert_eq!(breaker.state(), CircuitState::Open);
+    assert!(!breaker.allow_request());
+}
+
+#[test]
+fn test_circuit_breaker_reset() {
+    let breaker = CircuitBreaker::new(1, Duration::from_secs(10));
+
+    breaker.record_failure();
+    assert_eq!(breaker.state(), CircuitState::Open);
+
+    breaker.reset();
+    assert_eq!(breaker.state(), CircuitState::Closed);
+}
+
+#[test]
+fn test_state_manager_default_state() {
+    let manager = StateManager::new();
+    assert_eq!(manager.current_state(), MimiState::Idle);
+}
+
+#[test]
+fn test_state_manager_queue_size() {
+    let manager = StateManager::new();
+    assert_eq!(manager.queue_size(), 0);
+
+    let task = Task::new(TaskType::Query, "test");
+    manager.enqueue_task(task).unwrap();
+
+    assert_eq!(manager.queue_size(), 1);
+}
+
+#[test]
+fn test_state_manager_force_error_state() {
+    let manager = StateManager::new();
+
+    manager.force_error_state(MimiState::CriticalError);
+    assert_eq!(manager.current_state(), MimiState::CriticalError);
+}
