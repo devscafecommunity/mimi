@@ -1,0 +1,243 @@
+# Gating System Configuration
+# Energy-efficient 3-tier routing with token budget management
+
+[gating]
+name = "Gating System"
+version = "0.1.0"
+description = "Hierarchical energy-aware task routing with cost-benefit optimization"
+
+# Global token budget configuration
+[gating.budget]
+# Daily token allocation (shared across all users in this session)
+daily_limit_tokens = 1_000_000
+
+# Reset time (UTC)
+reset_hour_utc = 0
+reset_minute_utc = 0
+
+# Alert thresholds
+budget_alert_percent = [50, 75, 90]  # Warn at 50%, 75%, 90% usage
+
+# Tier 1: Liliana Cache (Minimal Cost)
+[gating.tier1]
+enabled = true
+name = "Liliana Cache"
+estimated_token_cost = 10              # ~10 tokens (cache lookup + framing)
+latency_target_ms = 50                 # Target response time
+priority = 100                         # Highest priority (fast-path)
+
+# Cache hit confidence thresholds
+exact_match_min_confidence = 0.95      # Exact match requires high confidence
+semantic_match_min_confidence = 0.85   # Semantic match requires moderate confidence
+
+# Tier 2: Automated Skills (Moderate Cost)
+[gating.tier2]
+enabled = true
+name = "Echidna Skills"
+estimated_token_cost = 150             # ~150 tokens (skill execution)
+latency_target_ms = 300                # Target response time
+priority = 50                          # Medium priority
+
+# Skill selection criteria
+skill_success_rate_min = 0.90          # Only use skills with 90%+ success rate
+skill_timeout_seconds = 30             # Maximum skill execution time
+
+# Circuit breaker configuration
+circuit_breaker_enabled = true
+circuit_breaker_failure_threshold = 5  # Open after 5 consecutive failures
+circuit_breaker_success_threshold = 2  # Close after 2 consecutive successes
+circuit_breaker_timeout_seconds = 60   # Retry after 60 seconds
+
+# Tier 3: Full Cognitive Pipeline (High Cost)
+[gating.tier3]
+enabled = true
+name = "Mimi Full Pipeline"
+estimated_token_cost = 800             # ~800 tokens (full LLM reasoning + context)
+latency_target_ms = 3000               # Target response time
+priority = 10                          # Low priority (heavy computation)
+
+# Pandora context retrieval
+max_context_tokens = 300_000           # Maximum context window from memory
+context_retrieve_strategy = "heatmap"  # "heatmap" or "hybrid"
+
+# Token cost estimation
+[gating.cost_estimation]
+# Base costs per component
+cache_lookup_tokens = 5
+skill_execution_base_tokens = 100
+llm_reasoning_base_tokens = 500
+context_retrieval_tokens = 300
+personality_application_tokens = 20
+
+# Cost modifiers
+[gating.cost_estimation.modifiers]
+# Increase cost if context is large
+context_complexity_factor = 0.001      # Add 0.001 tokens per context byte
+
+# Increase cost if skill is complex
+skill_complexity_factor = 1.5          # 1.5x for complex skills
+
+# Tier escalation strategy (decision logic)
+[gating.escalation]
+# Route to next tier if:
+# 1. Current tier returns low-confidence response (<threshold)
+# 2. Current tier fails or times out
+# 3. Gating decision logic recommends it
+
+confidence_escalation_threshold = 0.5  # Escalate if confidence < 50%
+timeout_escalation_enabled = true      # Escalate on timeout
+failure_escalation_enabled = true      # Escalate on failure
+
+# Cost-benefit thresholds
+[gating.cost_benefit]
+# Only escalate if cost difference is acceptable
+# e.g., if Tier 1 fails, only try Tier 2 if cost(Tier2) < budget_remaining
+
+# Escalate from Tier 1 to Tier 2 if:
+tier1_to_tier2_cost_ratio_max = 20     # Tier2 cost < 20x Tier1 cost
+
+# Escalate from Tier 2 to Tier 3 if:
+tier2_to_tier3_cost_ratio_max = 10     # Tier3 cost < 10x Tier2 cost
+
+# Budget constraints always apply
+tier3_min_remaining_budget_tokens = 1000  # Reserve at least 1000 tokens
+
+# Deferral strategy (when budget exhausted)
+[gating.deferral]
+enabled = true
+max_deferred_requests = 100            # Queue up to 100 deferred requests
+
+# Deferral message templates
+deferral_message_short = "Orçamento de tokens esgotado. Tente novamente em uma nova sessão."
+deferral_message_long = "Desculpe, estou com orçamento de tokens limitado no momento. Isso é uma limitação de recursos. Tente novamente em uma nova sessão ou em um horário com menos concorrência."
+
+# Retry policy
+deferral_retry_on_new_session = true
+deferral_suggest_alternative_tier = true
+
+# Logging and Observability
+[gating.logging]
+level = "info"                         # "debug", "info", "warn", "error"
+format = "json"
+output_file = "./logs/gating.log"
+log_routing_decisions = true            # Log every routing decision (verbose)
+log_cost_calculations = false           # Log cost estimation details (very verbose)
+log_budget_status = true                # Log budget usage at intervals
+
+# Decision logging
+[gating.logging.decision_log]
+enabled = true
+file = "./logs/gating_decisions.jsonl"  # JSON Lines format (one decision per line)
+format = """
+{
+    "timestamp": "2026-04-17T12:34:56Z",
+    "request_id": "req-uuid",
+    "intent": "code_generation",
+    "tier_selected": 2,
+    "confidence": 0.85,
+    "cost_estimated": 150,
+    "budget_remaining": 150_000,
+    "reasoning": "Skill exists, cost OK, confidence high"
+}
+"""
+
+# Metrics and Monitoring
+[gating.metrics]
+prometheus_enabled = true
+prometheus_port = 9090
+metrics_export_interval_seconds = 60
+
+# Tracked metrics
+[[gating.metrics.tracked]]
+name = "tier_routing_distribution"
+description = "Count of requests routed to each tier"
+
+[[gating.metrics.tracked]]
+name = "cost_savings_percent"
+description = "% savings from tiered routing vs baseline Tier 3"
+
+[[gating.metrics.tracked]]
+name = "budget_utilization_percent"
+description = "% of daily token budget used"
+
+[[gating.metrics.tracked]]
+name = "tier2_success_rate"
+description = "% of Tier 2 (skill) requests that succeeded"
+
+[[gating.metrics.tracked]]
+name = "tier3_latency_ms"
+description = "Average latency for Tier 3 requests"
+
+[[gating.metrics.tracked]]
+name = "deferral_count"
+description = "Count of deferred requests"
+
+# Expected outcomes (baseline)
+[gating.baseline]
+# When all requests went to Tier 3 (pre-gating)
+baseline_avg_tokens_per_request = 800
+baseline_cost_per_1k_requests_usd = 40  # At $0.05/1M tokens
+
+# With gating enabled (target)
+target_avg_tokens_per_request = 180     # 77% reduction
+target_cost_per_1k_requests_usd = 9     # 78% reduction
+target_tier1_percent = 30               # 30% of requests from cache
+target_tier2_percent = 50               # 50% from skills
+target_tier3_percent = 15               # 15% full pipeline
+target_defer_percent = 5                # 5% deferred (budget constraints)
+
+# Testing/Development
+[gating.dev]
+# Mock mode (use deterministic routing for testing)
+mock_mode = false
+mock_tier_always_select = null          # null = real routing, or "tier1"/"tier2"/"tier3"
+
+# Override budget for testing
+budget_override_enabled = false
+budget_override_tokens = 10_000
+
+# Trace mode (ultra-verbose logging)
+trace_mode = false
+
+# Simulation mode (calculate costs but don't actually route)
+simulation_mode = false
+
+# Cost model presets
+[gating.cost_presets]
+# Use preset cost models for different scenarios
+
+[gating.cost_presets.tiny_request]
+description = "Simple question, no context needed"
+estimated_cost = 50
+
+[gating.cost_presets.small_request]
+description = "Code snippet request, limited context"
+estimated_cost = 200
+
+[gating.cost_presets.medium_request]
+description = "Architecture advice, moderate context"
+estimated_cost = 500
+
+[gating.cost_presets.large_request]
+description = "Complex problem-solving, full context"
+estimated_cost = 1200
+
+# Intent classification confidence thresholds
+[gating.intent_classification]
+# Used to determine if Tier 1 confidence is sufficient
+
+high_confidence_threshold = 0.85        # Proceed with Tier 1-2
+medium_confidence_threshold = 0.60      # Escalate to Tier 2-3
+low_confidence_threshold = 0.30         # Escalate to Tier 3 or defer
+
+# For ambiguous intents, prefer escalation
+ambiguous_intent_escalate_ratio = 1.5   # 1.5x cost increase acceptable
+
+# Feature flags
+[gating.features]
+# Enable/disable specific gating features
+
+personality_cost_calculation = true     # Factor personality update cost
+skill_reliability_weighting = true      # Weight by skill success rate
+budget_aware_escalation = true          # Consider budget in escalation
+cache_warmup_on_startup = true          # Pre-populate cache with common queries

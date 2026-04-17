@@ -1,0 +1,183 @@
+# Liliana Module Configuration
+# Interactive presence layer with mood state machine and response caching
+
+[liliana]
+# Module identity
+name = "Liliana"
+version = "0.1.0"
+description = "Interactive Presence - The Empathetic Reflex Layer"
+
+# Enable/disable personality injection
+personality_injection_enabled = true
+personality_injection_version = "1.0"
+
+# Mood system configuration
+[liliana.mood]
+# Mood decay (how quickly mood returns to baseline)
+decay_rate = 0.05                    # 5% decay per tick (~1 second)
+decay_interval_ms = 1000             # Decay check frequency
+
+# Initial mood state (baseline)
+initial_mood = { 
+    formality = 0.5,                 # Neutral formality
+    confidence = 0.7,                # Reasonably confident
+    urgency = 0.2,                   # Not urgent
+    curiosity = 0.8,                 # Highly curious
+    caution = 0.3,                   # Moderately cautious
+}
+
+# Mood bounds (clamp to [min, max])
+formality_bounds = [0.0, 1.0]
+confidence_bounds = [0.0, 1.0]
+urgency_bounds = [0.0, 1.0]
+curiosity_bounds = [0.0, 1.0]
+caution_bounds = [0.0, 1.0]
+
+# Events that trigger mood changes
+[liliana.mood_triggers]
+# User asks question → increases curiosity
+question_detected = { curiosity = "+0.15", confidence = "+0.05" }
+
+# Clarification requested → decreases confidence, increases caution
+clarification_requested = { confidence = "-0.2", caution = "+0.2" }
+
+# Security alert from Odlaguna → hardens personality
+security_alert = { caution = "+0.6", confidence = "-0.3", urgency = "+0.4" }
+
+# Successful response → boosts confidence
+response_success = { confidence = "+0.1", curiosity = "+0.05" }
+
+# Response rejected/failed → reduces confidence, increases caution
+response_failure = { confidence = "-0.15", caution = "+0.15" }
+
+# Long silence (no interaction) → returns to baseline
+idle_timeout_ms = 30000
+idle_reset = { formality = "→0.5", confidence = "→0.7", curiosity = "→0.8", caution = "→0.3" }
+
+# Personality update frequency
+[liliana.personality]
+# How often to publish personality updates to message bus
+update_frequency_ms = 500           # Every 500ms
+
+# Only publish if magnitude of change exceeds threshold
+update_threshold = 0.05             # 5% change in any mood dimension
+
+# Personality state persistence (for recovery)
+persist_to_disk = true
+persist_path = "./data/liliana_personality_state.json"
+persist_interval_ms = 5000
+
+# Cache configuration (Tier 1 responses)
+[liliana.cache]
+# Cache type: "lru" (LRU) or "lfu" (Least Frequently Used)
+cache_type = "lru"
+
+# Cache size
+max_entries = 1000
+max_memory_mb = 100
+
+# TTL (time-to-live) for cached entries
+ttl_social_seconds = 3600           # Social chat (1 hour)
+ttl_status_seconds = 86400          # Status queries (24 hours)
+ttl_code_examples_seconds = 3600    # Code snippets (1 hour)
+ttl_default_seconds = 600           # Everything else (10 minutes)
+
+# Cache layers
+[liliana.cache.exact_match]
+enabled = true
+algorithm = "trie"                  # Prefix tree for fast lookups
+description = "Exact string matching (fastest)"
+
+[liliana.cache.semantic]
+enabled = true
+similarity_threshold = 0.85         # Cosine distance threshold
+algorithm = "embedding"             # Vector similarity
+description = "Semantic similarity (via embeddings)"
+embedding_model = "gte-small"       # Small, fast embedding model
+embedding_cache_size = 10000        # Cache embeddings
+
+# Reflex response templates (predefined answers)
+[liliana.reflexes]
+# Simple, fast, pre-programmed responses for trivial queries
+
+[[liliana.reflexes.templates]]
+trigger = "O que você faz?"
+response = "Sou a Beatrice, assistente cognitivo. Posso ajudar com análise de código, design de arquitetura, e muito mais."
+confidence = 0.95
+category = "social"
+
+[[liliana.reflexes.templates]]
+trigger = "Oi"
+response = "Olá! Como posso ajudá-lo?"
+confidence = 0.95
+category = "social"
+
+[[liliana.reflexes.templates]]
+trigger = "Como você funciona?"
+response = "Funciono através de uma arquitetura de microagentes especializados, com memória contextual em grafos, e raciocínio de múltiplos níveis."
+confidence = 0.90
+category = "meta"
+
+[[liliana.reflexes.templates]]
+trigger = "Qual é a hora?"
+response = "A hora atual é {current_time}. Posso ajudar com algo relacionado ao tempo?"
+confidence = 0.85
+category = "utility"
+
+# Message Bus configuration (NATS/Zenoh)
+[liliana.message_bus]
+protocol = "nats"                   # "nats" or "zenoh"
+connection_string = "nats://localhost:4222"
+reconnect_interval_ms = 1000
+max_reconnect_attempts = 10
+
+# Publishing configuration
+[liliana.message_bus.publish]
+personality_update_topic = "liliana/personality_update"
+mood_event_topic = "liliana/mood_event"
+response_ready_topic = "liliana/response_ready"
+
+# Subscription configuration
+[liliana.message_bus.subscribe]
+security_alert_topic = "odlaguna/security_alert"
+mood_injection_override_topic = "liliana/mood_override"  # For testing
+
+# Logging configuration
+[liliana.logging]
+level = "info"                      # "debug", "info", "warn", "error"
+format = "json"                     # "json" or "text"
+output_file = "./logs/liliana.log"
+max_file_size_mb = 100
+max_backups = 10
+
+# Metrics/Observability
+[liliana.metrics]
+prometheus_enabled = true
+prometheus_port = 9090
+
+# Metrics to track
+[[liliana.metrics.tracked]]
+name = "cache_hit_rate"
+description = "Percentage of requests served from cache"
+
+[[liliana.metrics.tracked]]
+name = "personality_update_latency_ms"
+description = "Time to compute and publish personality updates"
+
+[[liliana.metrics.tracked]]
+name = "mood_state_changes"
+description = "Count of mood state transitions per interval"
+
+# Testing/Development
+[liliana.dev]
+# Mock mode (use fake responses for testing)
+mock_mode = false
+
+# Override personality with fixed state (for testing)
+personality_override_enabled = false
+personality_override_formality = 0.5
+personality_override_confidence = 0.7
+
+# Verbose logging for debugging
+debug_mood_transitions = false
+debug_cache_operations = false
