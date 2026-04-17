@@ -5,6 +5,7 @@
 
 use anyhow::{anyhow, Result};
 use chrono::{DateTime, Utc};
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -281,6 +282,57 @@ impl StateManager {
                 log::error!("Task {} timed out", task_name);
                 Err(anyhow!("Task execution timeout"))
             },
+        }
+    }
+
+    /// Execute task with retry logic
+    pub async fn execute_with_retry(&self) -> Result<()> {
+        let mut task = self.dequeue_task()?;
+        let retry_strategy = RetryStrategy::exponential_with_jitter();
+
+        loop {
+            let result = match task.execution_model {
+                ExecutionModel::Blocking => self.execute_blocking_task(task.clone()).await,
+                ExecutionModel::Async => self.execute_async_task(task.clone()).await,
+            };
+
+            match result {
+                Ok(()) => {
+                    log::info!(
+                        "Task {} succeeded after {} retries",
+                        task.name,
+                        task.retries
+                    );
+                    return Ok(());
+                },
+                Err(e) => {
+                    if !task.can_retry() {
+                        log::error!(
+                            "Task {} failed after {} retries: {}",
+                            task.name,
+                            task.max_retries,
+                            e
+                        );
+                        return Err(anyhow!(
+                            "Task failed after {} retries: {}",
+                            task.max_retries,
+                            e
+                        ));
+                    }
+
+                    task.increment_retry();
+                    let delay = retry_strategy.next_delay(task.retries - 1);
+
+                    log::warn!(
+                        "Task {} failed (attempt {}), retrying in {:?}",
+                        task.name,
+                        task.retries,
+                        delay
+                    );
+
+                    sleep(delay).await;
+                },
+            }
         }
     }
 }
@@ -613,5 +665,60 @@ impl CircuitBreaker {
 
         let mut count = self.failure_count.lock().unwrap();
         *count = 0;
+    }
+}
+
+/// Retry strategy with exponential backoff
+#[derive(Debug, Clone)]
+pub struct RetryStrategy {
+    base_delay_ms: u64,
+    max_delay_ms: u64,
+    jitter_enabled: bool,
+    jitter_factor: f64,
+}
+
+impl RetryStrategy {
+    /// Create exponential backoff strategy (100ms -> 5s)
+    pub fn exponential() -> Self {
+        Self {
+            base_delay_ms: 100,
+            max_delay_ms: 5000,
+            jitter_enabled: false,
+            jitter_factor: 0.0,
+        }
+    }
+
+    /// Create exponential backoff with 20% jitter
+    pub fn exponential_with_jitter() -> Self {
+        Self {
+            base_delay_ms: 100,
+            max_delay_ms: 5000,
+            jitter_enabled: true,
+            jitter_factor: 0.2,
+        }
+    }
+
+    /// Calculate delay for retry attempt
+    pub fn next_delay(&self, retry_count: u32) -> Duration {
+        let base_delay = self.base_delay_ms * 2_u64.pow(retry_count);
+        let capped_delay = base_delay.min(self.max_delay_ms);
+
+        if self.jitter_enabled {
+            let jitter_range = (capped_delay as f64 * self.jitter_factor) as u64;
+            let mut rng = rand::thread_rng();
+            let jitter = rng.gen_range(0..=jitter_range * 2);
+            let with_jitter =
+                (capped_delay as i64 - jitter_range as i64 + jitter as i64).max(0) as u64;
+
+            Duration::from_millis(with_jitter)
+        } else {
+            Duration::from_millis(capped_delay)
+        }
+    }
+}
+
+impl Default for RetryStrategy {
+    fn default() -> Self {
+        Self::exponential_with_jitter()
     }
 }

@@ -326,3 +326,51 @@ async fn test_task_timeout_handling() {
     let result = manager.execute_next_task().await;
     assert!(result.is_err());
 }
+
+// ============================================================================
+// Retry Strategy Tests
+// ============================================================================
+
+use mimi_core::state_machine::RetryStrategy;
+
+#[test]
+fn test_exponential_backoff_sequence() {
+    let strategy = RetryStrategy::exponential();
+
+    let delay1 = strategy.next_delay(0);
+    assert_eq!(delay1.as_millis(), 100);
+
+    let delay2 = strategy.next_delay(1);
+    assert_eq!(delay2.as_millis(), 200);
+
+    let delay3 = strategy.next_delay(2);
+    assert_eq!(delay3.as_millis(), 400);
+
+    let delay4 = strategy.next_delay(10);
+    assert_eq!(delay4.as_millis(), 5000);
+}
+
+#[test]
+fn test_retry_with_jitter() {
+    let strategy = RetryStrategy::exponential_with_jitter();
+
+    let delay = strategy.next_delay(2);
+
+    assert!(delay.as_millis() >= 320);
+    assert!(delay.as_millis() <= 480);
+}
+
+#[tokio::test]
+async fn test_execute_with_retry_success() {
+    let manager = StateManager::new();
+    manager.transition_to(MimiState::Listening).unwrap();
+    manager.transition_to(MimiState::Processing).unwrap();
+
+    let task =
+        Task::new(TaskType::Execute, "retry_task").with_execution_model(ExecutionModel::Blocking);
+
+    manager.enqueue_task(task).unwrap();
+
+    let result = manager.execute_with_retry().await;
+    assert!(result.is_ok());
+}
