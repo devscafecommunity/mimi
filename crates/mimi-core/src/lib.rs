@@ -8,10 +8,12 @@ pub mod error;
 pub mod message;
 pub mod routing;
 pub mod serialization;
+pub mod state_machine;
 
 pub use error::{Error, Result};
 pub use routing::{MessageRouter, RoutingError, Topic, TopicPattern};
 pub use serialization::{MessageSerializer, SerializationError};
+pub use state_machine::{MimiState, StateManager};
 
 /// Core version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
