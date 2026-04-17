@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::sync::{Arc, Mutex};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use uuid::Uuid;
 
 /// Mimi system states
@@ -430,5 +430,111 @@ impl Task {
     /// Increment retry counter
     pub fn increment_retry(&mut self) {
         self.retries += 1;
+    }
+}
+
+/// Circuit breaker states
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CircuitState {
+    /// Circuit closed, requests flow normally
+    Closed,
+    /// Circuit open, requests rejected immediately
+    Open,
+    /// Circuit half-open, testing if service recovered
+    HalfOpen,
+}
+
+/// Circuit breaker for preventing cascade failures
+pub struct CircuitBreaker {
+    state: Arc<Mutex<CircuitState>>,
+    failure_count: Arc<Mutex<u32>>,
+    failure_threshold: u32,
+    timeout: Duration,
+    last_failure_time: Arc<Mutex<Option<Instant>>>,
+}
+
+impl CircuitBreaker {
+    /// Create new circuit breaker
+    pub fn new(failure_threshold: u32, timeout: Duration) -> Self {
+        Self {
+            state: Arc::new(Mutex::new(CircuitState::Closed)),
+            failure_count: Arc::new(Mutex::new(0)),
+            failure_threshold,
+            timeout,
+            last_failure_time: Arc::new(Mutex::new(None)),
+        }
+    }
+
+    /// Get current circuit state
+    pub fn state(&self) -> CircuitState {
+        let state = *self.state.lock().unwrap();
+
+        if state == CircuitState::Open {
+            let last_failure = self.last_failure_time.lock().unwrap();
+
+            if let Some(time) = *last_failure {
+                if time.elapsed() >= self.timeout {
+                    let mut state_guard = self.state.lock().unwrap();
+                    *state_guard = CircuitState::HalfOpen;
+                    return CircuitState::HalfOpen;
+                }
+            }
+        }
+
+        state
+    }
+
+    /// Record successful execution
+    pub fn record_success(&self) {
+        let current_state = self.state();
+
+        if current_state == CircuitState::HalfOpen {
+            let mut state = self.state.lock().unwrap();
+            *state = CircuitState::Closed;
+
+            let mut count = self.failure_count.lock().unwrap();
+            *count = 0;
+
+            log::info!("Circuit breaker closed after successful test");
+        }
+    }
+
+    /// Record failed execution
+    pub fn record_failure(&self) {
+        let mut count = self.failure_count.lock().unwrap();
+        *count += 1;
+
+        let mut last_failure = self.last_failure_time.lock().unwrap();
+        *last_failure = Some(Instant::now());
+
+        if *count >= self.failure_threshold {
+            let mut state = self.state.lock().unwrap();
+            *state = CircuitState::Open;
+
+            log::warn!(
+                "Circuit breaker opened after {} failures",
+                self.failure_threshold
+            );
+        }
+    }
+
+    /// Check if request should be allowed
+    pub fn allow_request(&self) -> bool {
+        let state = self.state();
+
+        match state {
+            CircuitState::Closed => true,
+            CircuitState::Open => false,
+            CircuitState::HalfOpen => true,
+        }
+    }
+
+    /// Reset circuit breaker to closed state
+    pub fn reset(&self) {
+        let mut state = self.state.lock().unwrap();
+        *state = CircuitState::Closed;
+
+        let mut count = self.failure_count.lock().unwrap();
+        *count = 0;
     }
 }

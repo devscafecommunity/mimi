@@ -154,7 +154,7 @@ fn test_health_monitoring_auto_recovering() {
 // Task Tests
 // ============================================================================
 
-use mimi_core::state_machine::{ExecutionModel, Task, TaskPriority, TaskType};
+use mimi_core::state_machine::{Task, TaskPriority, TaskType};
 use std::time::Duration;
 
 #[test]
@@ -217,4 +217,61 @@ fn test_task_queue_capacity_limit() {
 
     let result = manager.enqueue_task(task3);
     assert!(result.is_err());
+}
+
+// ============================================================================
+// Circuit Breaker Tests
+// ============================================================================
+
+use mimi_core::state_machine::{CircuitBreaker, CircuitState};
+
+#[test]
+fn test_circuit_breaker_opens_after_failures() {
+    let breaker = CircuitBreaker::new(3, Duration::from_secs(10));
+
+    assert_eq!(breaker.state(), CircuitState::Closed);
+
+    // Record 3 failures
+    breaker.record_failure();
+    breaker.record_failure();
+    breaker.record_failure();
+
+    // Should open after 3 failures
+    assert_eq!(breaker.state(), CircuitState::Open);
+}
+
+#[test]
+fn test_circuit_breaker_half_open_after_timeout() {
+    let breaker = CircuitBreaker::new(3, Duration::from_millis(100));
+
+    // Open the circuit
+    breaker.record_failure();
+    breaker.record_failure();
+    breaker.record_failure();
+
+    assert_eq!(breaker.state(), CircuitState::Open);
+
+    // Wait for timeout
+    std::thread::sleep(Duration::from_millis(150));
+
+    // Should transition to HalfOpen
+    assert_eq!(breaker.state(), CircuitState::HalfOpen);
+}
+
+#[test]
+fn test_circuit_breaker_closes_on_success() {
+    let breaker = CircuitBreaker::new(3, Duration::from_millis(100));
+
+    // Open circuit
+    for _ in 0..3 {
+        breaker.record_failure();
+    }
+
+    // Wait for half-open
+    std::thread::sleep(Duration::from_millis(150));
+    assert_eq!(breaker.state(), CircuitState::HalfOpen);
+
+    // Success should close circuit
+    breaker.record_success();
+    assert_eq!(breaker.state(), CircuitState::Closed);
 }
