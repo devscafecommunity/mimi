@@ -285,7 +285,7 @@ impl MessageRouter {
         TopicPattern::new(pattern)?;
 
         let mut handlers = self.handlers.lock().unwrap();
-        let entry = handlers.entry(pattern.to_string()).or_insert_with(Vec::new);
+        let entry = handlers.entry(pattern.to_string()).or_default();
         entry.push(Box::new(handler));
 
         log::debug!("Registered handler for pattern: {}", pattern);
