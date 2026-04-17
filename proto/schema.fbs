@@ -1,258 +1,334 @@
-// MiMi Message Schema (FlatBuffers)
-// Comprehensive protocol definition for distributed message passing
+namespace MiMi.Protocol;
 
-namespace mimi.protocol;
-
-// ============================================================================
-// Enumerations
-// ============================================================================
+include "metadata.fbs";
 
 enum IntentType : byte {
-  UNKNOWN = 0,
-  QUERY = 1,
-  EXECUTE = 2,
-  SKILL_PUBLISH = 3,
-  STATE_UPDATE = 4,
-  MEMORY_UPDATE = 5,
-  ERROR_REPORT = 6,
-  CONTROL = 7
+  QUERY = 0,
+  ACTION = 1,
+  SKILL_CREATION = 2,
+  RESPONSE = 3,
+  ERROR = 4,
+  EVENT = 5,
+  CONTROL = 6
 }
 
 enum Priority : byte {
-  LOW = 0,
-  NORMAL = 1,
-  HIGH = 2,
-  CRITICAL = 3
+  CRITICAL = 0,
+  HIGH = 1,
+  MEDIUM = 2,
+  LOW = 3
 }
 
 enum ComplexityEstimate : byte {
   TRIVIAL = 0,
-  SIMPLE = 1,
-  MODERATE = 2,
-  COMPLEX = 3,
-  EXTREME = 4
+  SOCIAL = 1,
+  SIMPLE = 2,
+  MODERATE = 3,
+  COMPLEX = 4
+}
+
+enum GatingTier : byte {
+  TIER_1_REFLEX = 0,
+  TIER_2_AUTOMATED = 1,
+  TIER_3_COGNITIVE = 2
 }
 
 enum ResponseStatus : byte {
   SUCCESS = 0,
-  PENDING = 1,
-  ERROR = 2,
+  PARTIAL = 1,
+  FAILURE = 2,
   TIMEOUT = 3,
-  INVALID = 4,
-  UNAUTHORIZED = 5,
-  RATE_LIMITED = 6
+  REJECTED = 4
 }
 
 enum CacheLayer : byte {
   NONE = 0,
-  L1_LOCAL = 1,
-  L2_PROCESS = 2,
-  L3_DISTRIBUTED = 3
+  EXACT_MATCH = 1,
+  SEMANTIC = 2,
+  TEMPLATE = 3
 }
 
 enum MessageBodyType : byte {
-  NONE = 0,
-  TEXT = 1,
-  BINARY = 2,
-  JSON = 3,
-  PROTOBUF = 4
+  USER_INPUT = 0,
+  INTENT_CLASSIFIED = 1,
+  LILIANA_RESPONSE = 2,
+  TASK_EXECUTION = 3,
+  EXECUTION_RESULT = 4,
+  SKILL_PUBLISH = 5,
+  ODLAGUNA_GATE = 6,
+  MEMORY_UPDATE = 7,
+  EVENT_NOTIFICATION = 8,
+  ERROR_REPORT = 9,
+  CONTROL_MESSAGE = 10
 }
 
 // ============================================================================
-// Trace Context (Distributed Tracing)
+// METADATA & CORRELATION
 // ============================================================================
 
 table TraceContext {
-  correlation_id: string;
-  parent_id: string;
-  span_id: string;
-  trace_id: string;
-  timestamp_ns: uint64;
-  parent_timestamp_ns: uint64;
+  correlation_id: string (required);          // Unique ID for full request trace
+  parent_id: string;                          // Parent message ID for nested calls
+  span_id: string;                            // This message's span ID
+  timestamp_ms: uint64 (required);            // Message creation time
+  source_module: string (required);           // Originating module (beatrice, liliana, etc.)
 }
 
-// ============================================================================
-// Mood & Personality
-// ============================================================================
-
-table MoodState {
-  energy: float;
-  confidence: float;
-  curiosity: float;
-  caution: float;
-  collaborative: float;
-  timestamp_ms: uint64;
+table Mood {
+  curiosity: float;                           // [0,1] novelty interest
+  confidence: float;                          // [0,1] task success expectation
+  frustration: float;                         // [0,1] repeated failure state
+  engagement: float;                          // [0,1] interaction intensity
 }
 
 table ToneProfile {
-  formality: float;           // 0.0 = casual, 1.0 = formal
-  creativity: float;          // 0.0 = literal, 1.0 = creative
-  verbosity: float;           // 0.0 = terse, 1.0 = verbose
-  humor_level: float;         // 0.0 = none, 1.0 = high
+  politeness: float;                          // [0,1] courtesy level
+  formality: float;                           // [0,1] casual vs. formal
+  confidence_stated: float;                   // [0,1] confidence in response quality
 }
 
 // ============================================================================
-// Core Message Types
+// BEATRICE → MIMI: USER INPUT & INTENT CLASSIFICATION
 // ============================================================================
 
 table UserInput {
-  text: string;
-  intent_hint: string;
-  context_tags: [string];
-  metadata: [KeyValuePair];
+  user_message: string (required);            // Raw user text
+  user_id: string (required);                 // User identifier
+  session_id: string (required);              // Conversation session
+  channel: string;                            // Input channel (cli, http, websocket, etc.)
 }
 
 table IntentClassified {
-  intent_type: IntentType;
-  confidence: float;
-  entities: [Entity];
-  context: string;
-}
-
-table Entity {
-  name: string;
-  type: string;
-  value: string;
-  confidence: float;
-}
-
-table KeyValuePair {
-  key: string;
-  value: string;
-}
-
-table SkillPublish {
-  skill_id: string;
-  skill_name: string;
-  version: string;
-  description: string;
-  inputs: [ParameterSchema];
-  outputs: [ParameterSchema];
-  tags: [string];
-}
-
-table ParameterSchema {
-  name: string;
-  type: string;
-  description: string;
-  required: bool;
-  default_value: string;
-}
-
-table TaskExecution {
-  task_id: string;
-  skill_id: string;
-  priority: Priority;
-  timeout_ms: uint32;
-  inputs: [KeyValuePair];
-  context: string;
-}
-
-table ExecutionResult {
-  task_id: string;
-  status: ResponseStatus;
-  output: string;
-  execution_time_ms: uint32;
-  error_message: string;
-}
-
-table MemoryUpdate {
-  graph_id: string;
-  node_id: string;
-  operation: string;      // CREATE, UPDATE, DELETE, QUERY
-  data: [KeyValuePair];
-  timestamp_ms: uint64;
-  heat: float;
-}
-
-table OdalgunaGate {
-  task_id: string;
-  complexity_score: ComplexityEstimate;
-  energy_required: float;
-  security_level: uint8;
-  approved: bool;
-  rationale: string;
-}
-
-table LilianaResponse {
-  mood_state: MoodState;
-  tone_profile: ToneProfile;
-  generated_response: string;
-  confidence: float;
-  alternatives: [string];
-}
-
-table ErrorReport {
-  error_id: string;
-  error_type: string;
-  message: string;
-  stack_trace: string;
-  context: string;
-  timestamp_ms: uint64;
-  severity: uint8;
-}
-
-table EventNotification {
-  event_type: string;
-  event_id: string;
-  source: string;
-  data: [KeyValuePair];
-  timestamp_ms: uint64;
-}
-
-table ControlMessage {
-  command: string;
-  target: string;
-  parameters: [KeyValuePair];
+  intent_type: IntentType;                    // Classified intent (QUERY, ACTION, etc.)
+  confidence: float;                          // [0,1] classification confidence
+  entity_tags: [string];                      // Extracted entities (e.g., ["repo_name", "count"])
+  is_social: bool;                            // Is this a social/trivial request?
+  estimated_complexity: ComplexityEstimate;   // Gating system complexity
+  raw_intent_text: string;                    // Parsed intent string for logging
 }
 
 // ============================================================================
-// Message Envelope
+// LILIANA ↔ SYSTEM: MOOD, CACHE, REFLEX RESPONSES
+// ============================================================================
+
+table CachedResponse {
+  response: string (required);
+  confidence: float;                          // [0,1] confidence in cache fitness
+  cache_layer: CacheLayer;
+  cache_hit: bool;
+  latency_ms: uint32;
+  timestamp_created: uint64;
+  hit_count: uint32;
+}
+
+table LilianaResponse {
+  response: string (required);
+  mood: Mood (required);
+  confidence: float;                          // Overall confidence in response
+  tone_profile: ToneProfile;
+  cached_response: CachedResponse;            // If Tier 1 hit
+  fallback_metadata: string;                  // JSON: fallback reason, routing hint
+}
+
+// ============================================================================
+// MIMI COMMANDER: TASK CREATION & ROUTING
+// ============================================================================
+
+table RoutingDecision {
+  target_tier: GatingTier (required);
+  reason: string;                             // Why this tier was chosen
+  estimated_cost_tokens: uint32;              // Token budget estimate
+  estimated_latency_ms: uint32;               // Expected response time
+  budget_remaining: uint64;                   // Tokens left in this tier
+}
+
+table TaskExecution {
+  task_id: string (required);
+  skill_id: string (required);                // Skill to execute
+  skill_name: string;                         // Human-readable name
+  priority: Priority (required);
+  parameters: [byte];                         // Serialized skill-specific params
+  timeout_ms: uint32;                         // Task timeout (ms)
+  routing_decision: RoutingDecision;
+}
+
+// ============================================================================
+// EXECUTION RESULTS & ERROR HANDLING
+// ============================================================================
+
+table ExecutionResult {
+  task_id: string (required);
+  success: bool;
+  status: ResponseStatus;
+  output: string;                             // Result output
+  error: string;                              // Error message if failed
+  execution_time_ms: uint32;
+  tokens_consumed: uint32;                    // For gating budget tracking
+  error_type: string;                         // e.g., "timeout", "network", "validation"
+}
+
+table ErrorReport {
+  error_id: string (required);
+  severity: Priority;                         // How critical is this error?
+  module: string (required);                  // Where error occurred
+  error_message: string (required);
+  error_type: string;                         // Error classification
+  stack_trace: string;                        // Stack trace (debug only)
+  context_json: string;                       // Additional context as JSON
+  timestamp_ms: uint64 (required);
+}
+
+// ============================================================================
+// SKILL LIFECYCLE: CREATION, REVIEW, DEPLOYMENT
+// ============================================================================
+
+table SkillMetadata {
+  skill_id: string (required);
+  name: string (required);
+  version: string;
+  language: string;                           // "rhai" or "wasm"
+  author: string;
+  description: string;
+  created_at: uint64;
+  modified_at: uint64;
+  execution_count: uint64;
+  success_rate: float;                        // [0,1]
+  avg_latency_ms: float;
+  estimated_token_cost: uint32;
+  tags: [string];                             // Capability tags
+}
+
+table SkillCode {
+  skill_id: string (required);
+  language: string;                           // "rhai" or "wasm"
+  code: [byte] (required);                    // Script or WASM binary
+  dependencies: [string];                     // External dependencies
+  compilation_flags: string;
+}
+
+table SkillPublish {
+  metadata: SkillMetadata (required);
+  code: SkillCode (required);
+  approval_required: bool;
+}
+
+// ============================================================================
+// ODLAGUNA: SECURITY GATING & VALIDATION
+// ============================================================================
+
+table SecurityFlags {
+  has_suspicious_patterns: bool;
+  potential_bias_detected: bool;
+  tone_misalignment: bool;
+  contradicts_prior: bool;
+  requires_review: bool;
+  rejected_reason: string;
+}
+
+table OdalgunaGate {
+  message_id: string (required);
+  allowed: bool;
+  modifications: [Modification];             // Suggested content changes
+  security_flags: SecurityFlags;
+  confidence: float;                          // [0,1] gate confidence
+  latency_ms: uint32;
+}
+
+table Modification {
+  type: string;                               // "tone_adjust", "content_trim", etc.
+  reason: string;
+  before: string;
+  after: string;
+}
+
+// ============================================================================
+// PANDORA: MEMORY & CONTEXT UPDATES
+// ============================================================================
+
+table MemoryUpdate {
+  update_id: string (required);
+  entity_id: string (required);               // Neo4j node ID
+  action: string;                             // "create", "update", "link", "delete"
+  entity_type: string;                        // "concept", "skill", "interaction", etc.
+  properties: string;                         // JSON properties
+  heatmap_decay: float;                       // Thermal decay factor [0,1]
+  retention_priority: Priority;
+  timestamp_ms: uint64 (required);
+}
+
+table MemoryQuery {
+  query_id: string (required);
+  entity_type: string;
+  filters: string;                            // JSON query filters
+  max_results: uint32;
+  heatmap_threshold: float;                   // Min heat for inclusion
+}
+
+// ============================================================================
+// PRISCILLA: CRITIQUE & ANALYSIS
+// ============================================================================
+
+table CritiqueRequest {
+  critique_id: string (required);
+  target_text: string (required);             // Text to critique
+  critique_type: string;                      // "logic", "safety", "coherence", etc.
+  context: string;                            // Background context (JSON)
+  max_tokens: uint32;
+}
+
+table CritiqueResponse {
+  critique_id: string (required);
+  assessment: string;                         // Critique result
+  confidence: float;                          // [0,1] confidence in critique
+  suggested_revisions: [string];
+}
+
+// ============================================================================
+// SYSTEM EVENTS & NOTIFICATIONS
+// ============================================================================
+
+table EventNotification {
+  event_id: string (required);
+  event_type: string;                         // "skill_loaded", "memory_updated", etc.
+  event_data: string;                         // JSON event payload
+  severity: Priority;
+  timestamp_ms: uint64 (required);
+}
+
+table ControlMessage {
+  control_id: string (required);
+  command: string;                            // "shutdown", "reload_skills", etc.
+  parameters: string;                         // JSON parameters
+  requires_ack: bool;
+}
+
+// ============================================================================
+// UNIFIED MESSAGE ENVELOPE
 // ============================================================================
 
 union MessageBody {
   UserInput,
   IntentClassified,
-  SkillPublish,
+  LilianaResponse,
   TaskExecution,
   ExecutionResult,
-  MemoryUpdate,
+  SkillPublish,
   OdalgunaGate,
-  LilianaResponse,
-  ErrorReport,
+  MemoryUpdate,
+  MemoryQuery,
+  CritiqueRequest,
+  CritiqueResponse,
   EventNotification,
+  ErrorReport,
   ControlMessage
 }
 
 table Message {
-  version: uint16;
-  message_id: string;
-  message_type: IntentType;
-  body: MessageBody;
-  
-  // Routing & Metadata
-  source: string;
-  destination: string;
-  topic: string;
-  priority: Priority;
-  complexity: ComplexityEstimate;
-  cache_layer: CacheLayer;
-  
-  // Trace Context
-  trace: TraceContext;
-  
-  // Timestamps
-  created_at_ms: uint64;
-  expires_at_ms: uint64;
-  
-  // Mood/Personality
-  mood: MoodState;
-  tone: ToneProfile;
-  
-  // Flags
-  requires_response: bool;
-  is_compressed: bool;
+  version: uint32;                            // Protocol version (for compatibility)
+  trace: TraceContext (required);
   body_type: MessageBodyType;
+  body: MessageBody (required);
+  routing_hint: string;                       // Target topic/route hint
 }
 
 root_type Message;
