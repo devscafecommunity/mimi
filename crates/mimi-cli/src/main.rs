@@ -22,6 +22,20 @@ enum Commands {
         #[arg(short, long)]
         config: Option<String>,
     },
+    #[command(about = "Start interactive REPL mode")]
+    Repl {
+        #[arg(long)]
+        history_file: Option<String>,
+
+        #[arg(long)]
+        max_history: Option<usize>,
+
+        #[arg(long)]
+        no_history: bool,
+
+        #[arg(long)]
+        startup_script: Option<String>,
+    },
     #[command(about = "Show version information")]
     Version,
 }
@@ -43,6 +57,29 @@ async fn main() -> anyhow::Result<()> {
             info!("Starting MiMi system");
             if let Some(config_path) = config {
                 info!("Using config: {}", config_path);
+            }
+        },
+        Some(Commands::Repl {
+            history_file,
+            max_history,
+            no_history,
+            startup_script,
+        }) => {
+            let repl_config = repl::ReplConfig {
+                history_file: history_file.unwrap_or_else(|| {
+                    format!(
+                        "{}/.mimi/repl_history",
+                        std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
+                    )
+                }),
+                max_history: max_history.unwrap_or(1000),
+                no_history,
+                startup_script,
+                completion: true,
+            };
+
+            if let Err(e) = repl::run_repl(repl_config).await {
+                eprintln!("REPL error: {}", e);
             }
         },
         Some(Commands::Version) => {

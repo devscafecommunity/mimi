@@ -2,9 +2,11 @@
 
 pub mod completion;
 pub mod editor;
+pub mod r#loop;
 pub mod special_commands;
 
 pub use editor::ReplEditor;
+pub use r#loop::run_repl;
 pub use special_commands::SpecialCommand;
 
 #[derive(Debug, Clone)]
