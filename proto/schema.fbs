@@ -1,0 +1,258 @@
+// MiMi Message Schema (FlatBuffers)
+// Comprehensive protocol definition for distributed message passing
+
+namespace mimi.protocol;
+
+// ============================================================================
+// Enumerations
+// ============================================================================
+
+enum IntentType : byte {
+  UNKNOWN = 0,
+  QUERY = 1,
+  EXECUTE = 2,
+  SKILL_PUBLISH = 3,
+  STATE_UPDATE = 4,
+  MEMORY_UPDATE = 5,
+  ERROR_REPORT = 6,
+  CONTROL = 7
+}
+
+enum Priority : byte {
+  LOW = 0,
+  NORMAL = 1,
+  HIGH = 2,
+  CRITICAL = 3
+}
+
+enum ComplexityEstimate : byte {
+  TRIVIAL = 0,
+  SIMPLE = 1,
+  MODERATE = 2,
+  COMPLEX = 3,
+  EXTREME = 4
+}
+
+enum ResponseStatus : byte {
+  SUCCESS = 0,
+  PENDING = 1,
+  ERROR = 2,
+  TIMEOUT = 3,
+  INVALID = 4,
+  UNAUTHORIZED = 5,
+  RATE_LIMITED = 6
+}
+
+enum CacheLayer : byte {
+  NONE = 0,
+  L1_LOCAL = 1,
+  L2_PROCESS = 2,
+  L3_DISTRIBUTED = 3
+}
+
+enum MessageBodyType : byte {
+  NONE = 0,
+  TEXT = 1,
+  BINARY = 2,
+  JSON = 3,
+  PROTOBUF = 4
+}
+
+// ============================================================================
+// Trace Context (Distributed Tracing)
+// ============================================================================
+
+table TraceContext {
+  correlation_id: string;
+  parent_id: string;
+  span_id: string;
+  trace_id: string;
+  timestamp_ns: uint64;
+  parent_timestamp_ns: uint64;
+}
+
+// ============================================================================
+// Mood & Personality
+// ============================================================================
+
+table MoodState {
+  energy: float;
+  confidence: float;
+  curiosity: float;
+  caution: float;
+  collaborative: float;
+  timestamp_ms: uint64;
+}
+
+table ToneProfile {
+  formality: float;           // 0.0 = casual, 1.0 = formal
+  creativity: float;          // 0.0 = literal, 1.0 = creative
+  verbosity: float;           // 0.0 = terse, 1.0 = verbose
+  humor_level: float;         // 0.0 = none, 1.0 = high
+}
+
+// ============================================================================
+// Core Message Types
+// ============================================================================
+
+table UserInput {
+  text: string;
+  intent_hint: string;
+  context_tags: [string];
+  metadata: [KeyValuePair];
+}
+
+table IntentClassified {
+  intent_type: IntentType;
+  confidence: float;
+  entities: [Entity];
+  context: string;
+}
+
+table Entity {
+  name: string;
+  type: string;
+  value: string;
+  confidence: float;
+}
+
+table KeyValuePair {
+  key: string;
+  value: string;
+}
+
+table SkillPublish {
+  skill_id: string;
+  skill_name: string;
+  version: string;
+  description: string;
+  inputs: [ParameterSchema];
+  outputs: [ParameterSchema];
+  tags: [string];
+}
+
+table ParameterSchema {
+  name: string;
+  type: string;
+  description: string;
+  required: bool;
+  default_value: string;
+}
+
+table TaskExecution {
+  task_id: string;
+  skill_id: string;
+  priority: Priority;
+  timeout_ms: uint32;
+  inputs: [KeyValuePair];
+  context: string;
+}
+
+table ExecutionResult {
+  task_id: string;
+  status: ResponseStatus;
+  output: string;
+  execution_time_ms: uint32;
+  error_message: string;
+}
+
+table MemoryUpdate {
+  graph_id: string;
+  node_id: string;
+  operation: string;      // CREATE, UPDATE, DELETE, QUERY
+  data: [KeyValuePair];
+  timestamp_ms: uint64;
+  heat: float;
+}
+
+table OdalgunaGate {
+  task_id: string;
+  complexity_score: ComplexityEstimate;
+  energy_required: float;
+  security_level: uint8;
+  approved: bool;
+  rationale: string;
+}
+
+table LilianaResponse {
+  mood_state: MoodState;
+  tone_profile: ToneProfile;
+  generated_response: string;
+  confidence: float;
+  alternatives: [string];
+}
+
+table ErrorReport {
+  error_id: string;
+  error_type: string;
+  message: string;
+  stack_trace: string;
+  context: string;
+  timestamp_ms: uint64;
+  severity: uint8;
+}
+
+table EventNotification {
+  event_type: string;
+  event_id: string;
+  source: string;
+  data: [KeyValuePair];
+  timestamp_ms: uint64;
+}
+
+table ControlMessage {
+  command: string;
+  target: string;
+  parameters: [KeyValuePair];
+}
+
+// ============================================================================
+// Message Envelope
+// ============================================================================
+
+union MessageBody {
+  UserInput,
+  IntentClassified,
+  SkillPublish,
+  TaskExecution,
+  ExecutionResult,
+  MemoryUpdate,
+  OdalgunaGate,
+  LilianaResponse,
+  ErrorReport,
+  EventNotification,
+  ControlMessage
+}
+
+table Message {
+  version: uint16;
+  message_id: string;
+  message_type: IntentType;
+  body: MessageBody;
+  
+  // Routing & Metadata
+  source: string;
+  destination: string;
+  topic: string;
+  priority: Priority;
+  complexity: ComplexityEstimate;
+  cache_layer: CacheLayer;
+  
+  // Trace Context
+  trace: TraceContext;
+  
+  // Timestamps
+  created_at_ms: uint64;
+  expires_at_ms: uint64;
+  
+  // Mood/Personality
+  mood: MoodState;
+  tone: ToneProfile;
+  
+  // Flags
+  requires_response: bool;
+  is_compressed: bool;
+  body_type: MessageBodyType;
+}
+
+root_type Message;

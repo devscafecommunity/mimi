@@ -6,8 +6,10 @@
 pub mod config;
 pub mod error;
 pub mod message;
+pub mod serialization;
 
 pub use error::{Error, Result};
+pub use serialization::{MessageSerializer, SerializationError};
 
 /// Core version
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
