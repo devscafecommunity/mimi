@@ -540,6 +540,143 @@ Payload: {
 }
 ```
 
+### 7.4 How Liliana Stores Personality State
+
+**Flow:**
+
+1. Liliana emits personality updates to Message Bus topic: `liliana/personality_update`
+2. Pandora listens on `liliana/personality_snapshot` (batched snapshots, not every micro-update)
+3. Pandora stores personality snapshots as `:PersonalitySnapshot` nodes with the following structure:
+
+**Neo4j Schema Addition:**
+```
+(:Session)-[:HAS_PERSONALITY_STATE]->(:PersonalitySnapshot {
+    version: int,
+    timestamp: datetime,
+    mood_formality: float,        // 0.0 to 1.0
+    mood_confidence: float,
+    mood_urgency: float,
+    mood_curiosity: float,
+    mood_caution: float,
+    style_vocabulary_hash: string, // SHA256 of vocabulary JSON
+    behavior_code_style: string,   // "verbose", "concise", "detailed", "minimal"
+    behavior_emoji_allowed: boolean,
+    explanation_depth: string,     // "high", "medium", "low"
+    checksum: string,              // SHA256 for integrity
+})
+
+// Relationships for personality trajectory
+(:PersonalitySnapshot)-[:TRANSITIONS_TO]->(:PersonalitySnapshot)
+(:Session)-[:PERSONALITY_HISTORY]->(:PersonalitySnapshot)
+```
+
+**Example Storage Code:**
+
+```rust
+// pandora/src/personality_storage.rs
+pub async fn store_personality_snapshot(
+    personality: &PersonalityProfile,
+    version: u64,
+    session_id: &str,
+) -> Result<String> {
+    let cypher = r#"
+        MATCH (s:Session {session_id: $session_id})
+        CREATE (snapshot:PersonalitySnapshot {
+            version: $version,
+            timestamp: datetime(),
+            mood_formality: $formality,
+            mood_confidence: $confidence,
+            mood_urgency: $urgency,
+            mood_curiosity: $curiosity,
+            mood_caution: $caution,
+            style_vocabulary_hash: $vocab_hash,
+            behavior_code_style: $code_style,
+            behavior_emoji_allowed: $emoji,
+            explanation_depth: $depth,
+            checksum: $checksum
+        })
+        CREATE (s)-[:PERSONALITY_HISTORY]->(snapshot)
+        RETURN snapshot.id AS snapshot_id
+    "#;
+    
+    let params = neo4j::params! {
+        "session_id" => session_id,
+        "version" => version,
+        "formality" => personality.mood_modifiers.formality,
+        "confidence" => personality.mood_modifiers.confidence,
+        "urgency" => personality.mood_modifiers.urgency,
+        "curiosity" => personality.mood_modifiers.curiosity,
+        "caution" => personality.mood_modifiers.caution,
+        "vocab_hash" => compute_vocabulary_hash(&personality.style_vocabulary),
+        "code_style" => personality.behavior.code_style.clone(),
+        "emoji" => personality.behavior.use_emoji,
+        "depth" => personality.behavior.explanation_depth.clone(),
+        "checksum" => compute_personality_checksum(&personality),
+    };
+    
+    let result = pandora::execute_query(cypher, &params).await?;
+    result.get_string("snapshot_id")
+}
+
+/// Query personality trajectory (mood evolution)
+pub async fn get_personality_trajectory(
+    session_id: &str,
+    limit: usize,
+) -> Result<Vec<PersonalitySnapshot>> {
+    let cypher = r#"
+        MATCH (s:Session {session_id: $session_id})-[:PERSONALITY_HISTORY]->(snap:PersonalitySnapshot)
+        RETURN snap ORDER BY snap.timestamp DESC LIMIT $limit
+    "#;
+    
+    let results = pandora::execute_query(cypher, &neo4j::params! {
+        "session_id" => session_id,
+        "limit" => limit
+    }).await?;
+    
+    Ok(results.into_iter().map(|row| {
+        PersonalitySnapshot {
+            version: row.get_int("version"),
+            timestamp: row.get_datetime("timestamp"),
+            mood_formality: row.get_float("mood_formality"),
+            mood_confidence: row.get_float("mood_confidence"),
+            // ... (remaining fields)
+        }
+    }).collect())
+}
+```
+
+**Message Bus Topic:**
+```
+Subscribe: liliana/personality_snapshot
+Payload: {
+    "version": 42,
+    "personality_state": { ... },
+    "session_id": "session-uuid",
+    "timestamp": "2026-04-17T12:34:56Z"
+}
+```
+
+**Observability:**
+
+Pandora exposes personality trajectory analytics via HTTP API:
+
+```
+GET /api/personality/{session_id}/trajectory?limit=100
+  → Returns mood evolution over time
+
+GET /api/personality/{session_id}/current
+  → Returns latest personality state
+
+GET /api/personality/global/stats
+  → Aggregated personality statistics (avg formality, distribution of confidence levels, etc.)
+```
+
+**Retention Policy:**
+
+- **Hot:** Latest 7 days of personality snapshots (fast query)
+- **Warm:** 8-90 days (indexed but slower)
+- **Cold:** >90 days (archived to external storage if needed)
+
 ---
 
 ## 8. Error Handling

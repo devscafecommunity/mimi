@@ -213,6 +213,152 @@ GET /api/audit/status/failure?since={ISO8601_timestamp}
 GET /api/audit/skill/{skill_id}
 ```
 
+### Personality Validation Gate (via Liliana)
+
+**Purpose:**
+
+Odlaguna validates that personality updates from Liliana stay within safe, ethical, and configurable bounds. This ensures the system's persona cannot be maliciously or accidentally corrupted to violate user trust, safety guidelines, or system design principles.
+
+**Message Bus Topics:**
+
+| Topic | Direction | Purpose |
+|-------|-----------|---------|
+| `liliana/personality_update` | Subscribe | Inspect personality state before Beatrice applies it |
+| `odlaguna/personality_validation` | Publish | Approve/reject personality modifications |
+| `odlaguna/security_alert` | Publish | Flag suspicious personality changes (optional hardening trigger) |
+
+**Validation Request (RPC-style):**
+
+```rust
+// Liliana publishes personality updates to:
+// topic: "liliana/personality_update"
+
+PersonalityInjection {
+    version: u64,
+    personality_state: PersonalityProfile {
+        identity: { name, archetype, values },
+        mood_modifiers: { formality, confidence, urgency, curiosity, caution },
+        style_vocabulary: { greetings, confirmations, uncertainties, errors, encouragements },
+        behavior: { use_emoji, code_style, explanation_depth, humor_allowed },
+    },
+    timestamp: DateTime,
+    checksum: String,
+}
+```
+
+**Validation Logic:**
+
+Odlaguna checks:
+1. **Bounds Check** — All mood_modifiers ∈ [0.0, 1.0]
+2. **Vocabulary Safety** — No injected prompts or jailbreak attempts in style_vocabulary
+3. **Behavioral Whitelist** — code_style ∈ {verbose, concise, detailed, minimal}, explanation_depth ∈ {high, medium, low}
+4. **Rate Limiting** — No more than N personality updates per second (prevents thrashing)
+5. **Checksum Verification** — Validate SHA256 signature to detect tampering
+6. **Identity Preservation** — personality_state.identity matches Beatrice's design document (cannot change archetype at runtime)
+
+**Validation Response:**
+
+```rust
+pub struct PersonalityValidationResult {
+    pub valid: bool,
+    pub reason: Option<String>,        // Rejection reason if valid=false
+    pub applied_constraints: Vec<String>,  // Which validation rules were applied
+    pub timestamp: DateTime,
+    pub validator_version: String,
+}
+```
+
+**Hardening Trigger (Security Alert):**
+
+If an anomalous personality change is detected (e.g., sudden shift from cautious to reckless), Odlaguna may:
+- Publish `odlaguna/security_alert` to notify Liliana and Mimi
+- Trigger temporary personality hardening (increase caution, decrease confidence)
+- Log incident to audit trail for review
+
+**Example Validation Code:**
+
+```rust
+// odlaguna/src/personality_validator.rs
+pub async fn validate_personality_injection(
+    injection: &PersonalityInjection,
+    config: &ValidatorConfig,
+) -> PersonalityValidationResult {
+    // 1. Bounds check
+    if !Self::bounds_check(&injection.personality_state.mood_modifiers) {
+        return PersonalityValidationResult {
+            valid: false,
+            reason: Some("Mood modifiers out of bounds".to_string()),
+            applied_constraints: vec!["bounds_check".to_string()],
+            timestamp: Utc::now(),
+            validator_version: config.version.clone(),
+        };
+    }
+    
+    // 2. Vocabulary safety check
+    if let Err(e) = Self::vocabulary_safety_check(
+        &injection.personality_state.style_vocabulary,
+        config,
+    ) {
+        return PersonalityValidationResult {
+            valid: false,
+            reason: Some(e.to_string()),
+            applied_constraints: vec!["vocabulary_safety".to_string()],
+            timestamp: Utc::now(),
+            validator_version: config.version.clone(),
+        };
+    }
+    
+    // 3. Behavioral whitelist check
+    if !Self::behavioral_whitelist_check(&injection.personality_state.behavior) {
+        return PersonalityValidationResult {
+            valid: false,
+            reason: Some("Behavior config not in whitelist".to_string()),
+            applied_constraints: vec!["behavior_whitelist".to_string()],
+            timestamp: Utc::now(),
+            validator_version: config.version.clone(),
+        };
+    }
+    
+    // 4. Checksum verification
+    if !Self::verify_checksum(injection) {
+        return PersonalityValidationResult {
+            valid: false,
+            reason: Some("Checksum verification failed (tampering detected)".to_string()),
+            applied_constraints: vec!["checksum_verification".to_string()],
+            timestamp: Utc::now(),
+            validator_version: config.version.clone(),
+        };
+    }
+    
+    // 5. Identity preservation check
+    if injection.personality_state.identity.name != config.expected_identity_name {
+        return PersonalityValidationResult {
+            valid: false,
+            reason: Some("Identity mismatch (cannot change archetype at runtime)".to_string()),
+            applied_constraints: vec!["identity_preservation".to_string()],
+            timestamp: Utc::now(),
+            validator_version: config.version.clone(),
+        };
+    }
+    
+    PersonalityValidationResult {
+        valid: true,
+        reason: None,
+        applied_constraints: vec![
+            "bounds_check".to_string(),
+            "vocabulary_safety".to_string(),
+            "behavior_whitelist".to_string(),
+            "checksum_verification".to_string(),
+            "identity_preservation".to_string(),
+        ],
+        timestamp: Utc::now(),
+        validator_version: config.version.clone(),
+    }
+}
+```
+
+See **[PERSONA-INJECTION.md](../specs/PERSONA-INJECTION.md)** for complete personality architecture and validation integration.
+
 ---
 
 ## 4. Key Algorithms

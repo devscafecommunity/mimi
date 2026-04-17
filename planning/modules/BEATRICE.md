@@ -681,6 +681,168 @@ pub fn format_response(response: Response) -> String {
 }
 ```
 
+## Personality Injection (via Liliana)
+
+**Overview:**
+
+Beatrice does not generate its own personality or tone. Instead, it subscribes to personality updates published by the **Liliana** module (the interactive presence layer). All system responses are styled according to Liliana's current personality state, which is mood-responsive and configurable.
+
+**Key Points:**
+- Liliana maintains a `PersonalityProfile` struct that represents Beatrice's communication style
+- Beatrice subscribes to `liliana/personality_update` messages on the Message Bus
+- Before formatting any response, Beatrice applies the current personality modifiers
+- Personality changes are atomic and versioned for consistency
+
+**Architecture:**
+
+```
+┌──────────────┐
+│   Liliana    │  (Interactive Presence)
+│  ┌─────────┐ │
+│  │Mood     │ │  → Computes PersonalityProfile
+│  │State    │ │     (formality, confidence, urgency, curiosity, caution)
+│  └─────────┘ │
+└────────┬─────┘
+         │ liliana/personality_update
+         ▼
+    ┌─────────────────────────┐
+    │  Message Bus (NATS)     │
+    └─────────────────────────┘
+         │
+         │ liliana/personality_update (subscribed)
+         ▼
+    ┌──────────────┐
+    │  Beatrice    │
+    │  ┌────────┐  │
+    │  │Persona │  │  Apply personality modifiers
+    │  │Filter  │  │  to all responses before output
+    │  └────────┘  │
+    └──────────────┘
+```
+
+**Personality Application Example:**
+
+```rust
+// beatrice/src/personality_filter.rs
+pub struct PersonalityFilter {
+    current_personality: PersonalityProfile,
+    version: u64,
+}
+
+impl PersonalityFilter {
+    /// Subscribe to personality updates from Liliana
+    pub async fn subscribe(bus_client: &BusClient) -> Result<Self> {
+        let mut subscriber = bus_client.subscribe("liliana/personality_update").await?;
+        
+        // Receive initial personality state
+        let msg = subscriber.recv().await?;
+        let injection: PersonalityInjection = deserialize_pb(&msg)?;
+        
+        Ok(PersonalityFilter {
+            current_personality: injection.personality_state,
+            version: injection.version,
+        })
+    }
+    
+    /// Apply personality modifiers to response content
+    pub fn apply_personality(&self, response: &str) -> String {
+        let profile = &self.current_personality;
+        let mut styled = response.to_string();
+        
+        // Example: Increase formality if confidence is high
+        if profile.mood_modifiers.confidence > 0.8 {
+            styled = self.elevate_formality(&styled, profile.style_vocabulary);
+        }
+        
+        // Example: Add hedging language if caution is high
+        if profile.mood_modifiers.caution > 0.7 {
+            styled = self.add_caveats(&styled, profile.style_vocabulary);
+        }
+        
+        // Example: Adjust code style if behavior.code_style is "concise"
+        if profile.behavior.code_style == "concise" {
+            styled = self.simplify_code_examples(&styled);
+        }
+        
+        styled
+    }
+    
+    /// Listen for personality updates and refresh state
+    pub async fn listen_for_updates(&mut self, bus_client: &BusClient) -> Result<()> {
+        let mut subscriber = bus_client.subscribe("liliana/personality_update").await?;
+        
+        loop {
+            let msg = subscriber.recv().await?;
+            let injection: PersonalityInjection = deserialize_pb(&msg)?;
+            
+            // Only update if version is newer
+            if injection.version > self.version {
+                self.current_personality = injection.personality_state;
+                self.version = injection.version;
+                log::info!("Personality updated to v{}", self.version);
+            }
+        }
+    }
+}
+```
+
+**Integration with Response Formatting:**
+
+```rust
+// beatrice/src/cli.rs (updated)
+pub async fn run_interactive(
+    mut personality_filter: PersonalityFilter,
+) -> Result<()> {
+    let mut rl = Reedline::create();
+    let bus_client = BusClient::connect("tcp://localhost:7447").await?;
+    
+    // Spawn task to listen for personality updates
+    let pf_clone = personality_filter.clone();
+    let bc_clone = bus_client.clone();
+    tokio::spawn(async move {
+        let _ = pf_clone.listen_for_updates(&bc_clone).await;
+    });
+    
+    loop {
+        let sig = rl.read_line(&prompt)?;
+        
+        match sig {
+            Signal::Success(line) => {
+                let intent = parse_user_input(&line)?;
+                let response = send_intent_and_wait(&bus_client, intent).await?;
+                
+                // Apply personality BEFORE formatting
+                let styled = personality_filter.apply_personality(&response.content);
+                let formatted = format_response(Response {
+                    content: styled,
+                    ..response
+                });
+                
+                println!("{}", formatted);
+            }
+            Signal::CtrlC | Signal::CtrlD => break,
+        }
+    }
+    
+    Ok(())
+}
+```
+
+**Personality State Availability:**
+
+The `PersonalityProfile` is always available to Beatrice for reference:
+
+```rust
+pub struct PersonalityProfile {
+    pub identity: PersonalityIdentity,           // Archetype & values
+    pub mood_modifiers: PersonalityModifiers,    // Formality, confidence, urgency, curiosity, caution
+    pub style_vocabulary: StyleVocabulary,       // Greetings, confirmations, errors, etc.
+    pub behavior: BehaviorConfig,                // Emoji usage, code style, explanation depth
+}
+```
+
+See **[PERSONA-INJECTION.md](../specs/PERSONA-INJECTION.md)** for the complete personality injection architecture, mood system, and real-world examples.
+
 ---
 
 ## Error Handling
