@@ -1,6 +1,8 @@
 use clap::{Parser, Subcommand};
 use tracing::info;
 
+mod repl;
+
 #[derive(Parser)]
 #[command(name = "mimi")]
 #[command(about = "MiMi - Multimodal Instruction Master Interface", long_about = None)]
