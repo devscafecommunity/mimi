@@ -1,4 +1,6 @@
-use super::{adapter::*, config::AdapterConfig, error::AdapterResult};
+use super::{
+    adapter::*, config::AdapterConfig, error::AdapterResult, GeminiAdapter, OllamaAdapter,
+};
 
 /// Adapter factory for creating adapters by type
 pub struct AdapterFactory;
@@ -8,16 +10,12 @@ impl AdapterFactory {
     pub async fn create(config: &AdapterConfig) -> AdapterResult<SharedAdapter> {
         match config.adapter_type.as_str() {
             "gemini" => {
-                // Placeholder - will implement in M1.5.2
-                Err(super::error::AdapterError::AdapterNotFound(
-                    "gemini adapter not yet implemented".to_string(),
-                ))
+                let adapter = GeminiAdapter::new(config.clone());
+                Ok(std::sync::Arc::new(tokio::sync::Mutex::new(adapter)))
             },
             "ollama" => {
-                // Placeholder - will implement in M1.5.3
-                Err(super::error::AdapterError::AdapterNotFound(
-                    "ollama adapter not yet implemented".to_string(),
-                ))
+                let adapter = OllamaAdapter::new(config.clone());
+                Ok(std::sync::Arc::new(tokio::sync::Mutex::new(adapter)))
             },
             _ => Err(super::error::AdapterError::AdapterNotFound(format!(
                 "unknown adapter type: {}",
