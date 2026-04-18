@@ -255,4 +255,38 @@ mod tests {
         let report = registry.get_performance_report().unwrap();
         assert_eq!(report.adapters.len(), 1);
     }
+
+    #[tokio::test]
+    async fn test_factory_adapter_timeout_adjustment_on_degradation() {
+        let tracker = Arc::new(PerformanceTracker::new());
+        let registry = AdapterRegistry::new_with_tracker(tracker.clone());
+
+        let config = AdapterConfig {
+            adapter_type: "gemini".to_string(),
+            api_key: Some("test-key".to_string()),
+            endpoint: Some("https://api.gemini.com".to_string()),
+            timeout_ms: 5000,
+            max_retries: 3,
+            model: "gemini-pro".to_string(),
+        };
+
+        let adapter = AdapterFactory::create(&config).await;
+        assert!(adapter.is_ok());
+
+        registry
+            .register_with_health("gemini".to_string(), adapter.unwrap())
+            .await
+            .ok();
+        tracker.register("gemini".to_string(), 5000);
+
+        for i in 0..50 {
+            tracker.record_success("gemini", 3000 + i * 10).ok();
+        }
+
+        let initial_timeout = registry.get_timeout("gemini").unwrap();
+        tracker.update_all_timeouts().ok();
+        let adjusted_timeout = registry.get_timeout("gemini").unwrap();
+
+        assert!(adjusted_timeout >= initial_timeout);
+    }
 }

@@ -456,4 +456,39 @@ mod tests {
         let result = registry.get_timeout("test");
         assert!(result.is_err());
     }
+
+    #[tokio::test]
+    async fn test_registry_multiple_adapters_performance_comparison() {
+        let tracker = Arc::new(PerformanceTracker::new());
+        let registry = AdapterRegistry::new_with_tracker(tracker.clone());
+
+        let adapter1 = create_mock_adapter();
+        let adapter2 = create_mock_adapter();
+
+        registry
+            .register_with_health("gemini".to_string(), adapter1)
+            .await
+            .unwrap();
+        registry
+            .register_with_health("ollama".to_string(), adapter2)
+            .await
+            .unwrap();
+
+        tracker.register("gemini".to_string(), 30000);
+        tracker.register("ollama".to_string(), 20000);
+
+        for i in 0..50 {
+            tracker.record_success("gemini", 100 + i).ok();
+            tracker.record_success("ollama", 80 + i).ok();
+        }
+
+        let gemini_timeout = registry.get_timeout("gemini").unwrap();
+        let ollama_timeout = registry.get_timeout("ollama").unwrap();
+
+        assert_eq!(gemini_timeout, 30000);
+        assert_eq!(ollama_timeout, 20000);
+
+        let report = registry.get_performance_report().unwrap();
+        assert_eq!(report.adapters.len(), 2);
+    }
 }
