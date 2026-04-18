@@ -30,3 +30,4 @@ jsonwebtoken = "9.0"
 argon2 = "0.5"
 thiserror.workspace = true
 futures = "0.3"
+tempfile = "3.8"
