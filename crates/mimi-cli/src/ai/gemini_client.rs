@@ -21,6 +21,7 @@ pub struct GeminiResponse {
 }
 
 /// Low-level Gemini API client
+#[derive(Clone)]
 pub struct GeminiClient {
     client: Client,
     api_key: String,
