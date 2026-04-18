@@ -199,4 +199,59 @@ mod tests {
         let result = AdapterFactory::create_with_registry(&config).await;
         assert!(result.is_ok());
     }
+
+    #[tokio::test]
+    async fn test_factory_registry_with_performance_tracker() {
+        let tracker = Arc::new(PerformanceTracker::new());
+        let registry = AdapterRegistry::new_with_tracker(tracker.clone());
+
+        let config = AdapterConfig {
+            adapter_type: "gemini".to_string(),
+            api_key: Some("test-key".to_string()),
+            endpoint: Some("https://api.gemini.com".to_string()),
+            timeout_ms: 30000,
+            max_retries: 3,
+            model: "gemini-pro".to_string(),
+        };
+
+        let adapter = AdapterFactory::create(&config).await;
+        assert!(adapter.is_ok());
+
+        registry
+            .register_with_health("gemini".to_string(), adapter.unwrap())
+            .await
+            .ok();
+        tracker.register("gemini".to_string(), 30000);
+
+        let timeout = registry.get_timeout("gemini").unwrap();
+        assert_eq!(timeout, 30000);
+    }
+
+    #[tokio::test]
+    async fn test_factory_registry_performance_tracking() {
+        let tracker = Arc::new(PerformanceTracker::new());
+        let registry = AdapterRegistry::new_with_tracker(tracker.clone());
+
+        let config = AdapterConfig {
+            adapter_type: "ollama".to_string(),
+            api_key: None,
+            endpoint: Some("http://localhost:11434".to_string()),
+            timeout_ms: 30000,
+            max_retries: 3,
+            model: "llama2".to_string(),
+        };
+
+        let adapter = AdapterFactory::create(&config).await;
+        assert!(adapter.is_ok());
+
+        registry
+            .register_with_health("ollama".to_string(), adapter.unwrap())
+            .await
+            .ok();
+        tracker.register("ollama".to_string(), 30000);
+        tracker.record_success("ollama", 150).ok();
+
+        let report = registry.get_performance_report().unwrap();
+        assert_eq!(report.adapters.len(), 1);
+    }
 }

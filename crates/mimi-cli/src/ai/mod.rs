@@ -26,5 +26,6 @@ pub use gemini_adapter::GeminiAdapter;
 pub use health::AdapterHealth;
 pub use health_checker::HealthChecker;
 pub use ollama_adapter::OllamaAdapter;
+pub use performance_tracker::PerformanceTracker;
 pub use priority_config::AdapterPriority;
 pub use registry::AdapterRegistry;

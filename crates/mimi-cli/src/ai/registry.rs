@@ -2,6 +2,7 @@ use super::{
     adapter::*,
     error::{AdapterError, AdapterResult},
     health::AdapterHealth,
+    performance_tracker::PerformanceTracker,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -10,6 +11,7 @@ use tokio::sync::RwLock;
 pub struct AdapterRegistry {
     pub adapters: RwLock<HashMap<String, (SharedAdapter, Arc<RwLock<AdapterHealth>>)>>,
     pub priority: Vec<String>,
+    pub performance_tracker: Option<Arc<PerformanceTracker>>,
 }
 
 impl AdapterRegistry {
@@ -17,6 +19,15 @@ impl AdapterRegistry {
         Arc::new(Self {
             adapters: RwLock::new(HashMap::new()),
             priority: vec!["gemini".to_string(), "ollama".to_string()],
+            performance_tracker: None,
+        })
+    }
+
+    pub fn new_with_tracker(tracker: Arc<PerformanceTracker>) -> Arc<Self> {
+        Arc::new(Self {
+            adapters: RwLock::new(HashMap::new()),
+            priority: vec!["gemini".to_string(), "ollama".to_string()],
+            performance_tracker: Some(tracker),
         })
     }
 
@@ -24,6 +35,18 @@ impl AdapterRegistry {
         Arc::new(Self {
             adapters: RwLock::new(HashMap::new()),
             priority,
+            performance_tracker: None,
+        })
+    }
+
+    pub fn with_priority_and_tracker(
+        priority: Vec<String>,
+        tracker: Arc<PerformanceTracker>,
+    ) -> Arc<Self> {
+        Arc::new(Self {
+            adapters: RwLock::new(HashMap::new()),
+            priority,
+            performance_tracker: Some(tracker),
         })
     }
 
@@ -150,6 +173,30 @@ impl AdapterRegistry {
         let adapters = self.adapters.read().await;
         adapters.len()
     }
+
+    pub fn get_timeout(&self, adapter_name: &str) -> AdapterResult<u32> {
+        if let Some(tracker) = &self.performance_tracker {
+            tracker
+                .get_timeout(adapter_name)
+                .map_err(|e| AdapterError::AllAdaptersFailed(e))
+        } else {
+            Err(AdapterError::AllAdaptersFailed(
+                "performance tracker not initialized".to_string(),
+            ))
+        }
+    }
+
+    pub fn get_performance_report(
+        &self,
+    ) -> AdapterResult<super::performance_tracker::PerformanceReport> {
+        if let Some(tracker) = &self.performance_tracker {
+            Ok(tracker.get_performance_report())
+        } else {
+            Err(AdapterError::AllAdaptersFailed(
+                "performance tracker not initialized".to_string(),
+            ))
+        }
+    }
 }
 
 impl Default for AdapterRegistry {
@@ -157,6 +204,7 @@ impl Default for AdapterRegistry {
         Self {
             adapters: RwLock::new(HashMap::new()),
             priority: vec!["gemini".to_string(), "ollama".to_string()],
+            performance_tracker: None,
         }
     }
 }
@@ -354,6 +402,58 @@ mod tests {
     async fn test_registry_not_found() {
         let registry = AdapterRegistry::new();
         let result = registry.get("nonexistent").await;
+        assert!(result.is_err());
+    }
+
+    #[tokio::test]
+    async fn test_registry_with_performance_tracker() {
+        let tracker = Arc::new(PerformanceTracker::new());
+        let registry = AdapterRegistry::new_with_tracker(tracker.clone());
+
+        let adapter = create_mock_adapter();
+        registry
+            .register_with_health("test".to_string(), adapter)
+            .await
+            .unwrap();
+
+        tracker.register("test".to_string(), 30000);
+        tracker.record_success("test", 100).ok();
+
+        let timeout = registry.get_timeout("test").unwrap();
+        assert_eq!(timeout, 30000);
+    }
+
+    #[tokio::test]
+    async fn test_registry_get_performance_report() {
+        let tracker = Arc::new(PerformanceTracker::new());
+        let registry = AdapterRegistry::new_with_tracker(tracker.clone());
+
+        let adapter = create_mock_adapter();
+        registry
+            .register_with_health("gemini".to_string(), adapter)
+            .await
+            .unwrap();
+
+        tracker.register("gemini".to_string(), 30000);
+        tracker.record_success("gemini", 100).ok();
+
+        let report = registry.get_performance_report().unwrap();
+        assert_eq!(report.adapters.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn test_registry_priority_with_tracker() {
+        let tracker = Arc::new(PerformanceTracker::new());
+        let priority = vec!["ollama".to_string(), "gemini".to_string()];
+        let registry = AdapterRegistry::with_priority_and_tracker(priority.clone(), tracker);
+
+        assert_eq!(registry.priority, priority);
+    }
+
+    #[tokio::test]
+    async fn test_registry_get_timeout_no_tracker() {
+        let registry = AdapterRegistry::new();
+        let result = registry.get_timeout("test");
         assert!(result.is_err());
     }
 }
