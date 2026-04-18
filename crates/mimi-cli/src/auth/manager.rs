@@ -50,6 +50,35 @@ impl AuthManager {
         );
 
         policies.insert(
+            "admin_query".to_string(),
+            Policy {
+                name: "admin_query".to_string(),
+                resource: "query".to_string(),
+                action: "read".to_string(),
+                allowed_roles: {
+                    let mut set = HashSet::new();
+                    set.insert(Role::Admin);
+                    set
+                },
+            },
+        );
+
+        policies.insert(
+            "user_query".to_string(),
+            Policy {
+                name: "user_query".to_string(),
+                resource: "query".to_string(),
+                action: "read".to_string(),
+                allowed_roles: {
+                    let mut set = HashSet::new();
+                    set.insert(Role::User);
+                    set.insert(Role::Admin);
+                    set
+                },
+            },
+        );
+
+        policies.insert(
             "guest_query".to_string(),
             Policy {
                 name: "guest_query".to_string(),
@@ -58,8 +87,6 @@ impl AuthManager {
                 allowed_roles: {
                     let mut set = HashSet::new();
                     set.insert(Role::Guest);
-                    set.insert(Role::User);
-                    set.insert(Role::Admin);
                     set
                 },
             },
@@ -83,22 +110,16 @@ impl AuthManager {
     ) -> Result<bool, AuthError> {
         let policies = self.policies.lock().unwrap();
 
-        let policy_key = format!(
-            "{}_{}",
-            identity
-                .roles
-                .iter()
-                .map(|r| r.as_str())
-                .next()
-                .unwrap_or("guest"),
-            resource
-        );
-
-        if let Some(policy) = policies.get(&policy_key) {
-            Ok(policy.allows(identity))
-        } else {
-            Ok(false)
+        for role in &identity.roles {
+            let policy_key = format!("{}_{}", role.as_str(), resource);
+            if let Some(policy) = policies.get(&policy_key) {
+                if policy.allows(identity) {
+                    return Ok(true);
+                }
+            }
         }
+
+        Ok(false)
     }
 
     pub fn register_identity(&self, identity: Identity) {
