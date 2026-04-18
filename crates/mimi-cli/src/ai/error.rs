@@ -27,6 +27,9 @@ pub enum AdapterError {
     #[error("network error: {0}")]
     NetworkError(String),
 
+    #[error("all adapters failed: {0}")]
+    AllAdaptersFailed(String),
+
     #[error("json parsing error: {0}")]
     JsonError(#[from] serde_json::Error),
 
