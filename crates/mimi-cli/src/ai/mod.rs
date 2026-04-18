@@ -4,6 +4,7 @@ pub mod error;
 pub mod factory;
 pub mod gemini_adapter;
 pub mod gemini_client;
+pub mod prompt_templates;
 pub mod registry;
 
 pub use adapter::{
