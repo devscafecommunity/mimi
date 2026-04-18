@@ -6,6 +6,7 @@ pub mod gemini_adapter;
 pub mod gemini_client;
 pub mod prompt_templates;
 pub mod registry;
+pub mod retry_strategy;
 
 pub use adapter::{
     AdapterCapabilities, AdapterInitParams, AiAdapter, AiRequest, AiResponse, SharedAdapter,
