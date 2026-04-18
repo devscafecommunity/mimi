@@ -120,6 +120,9 @@ impl PerformanceTracker {
             });
         }
 
+        // Sort adapters by name for consistent ordering
+        report_adapters.sort_by(|a, b| a.name.cmp(&b.name));
+
         let mut overall_health = SystemHealth::Healthy;
         let mut degraded_count = 0;
 

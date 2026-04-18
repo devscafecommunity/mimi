@@ -117,7 +117,7 @@ mod tests {
             metrics.record_success(50 + i as u32);
         }
 
-        if let Some(p95) = metrics.percentile(95.0) {
+        if let Some(_p95) = metrics.percentile(95.0) {
             let old_timeout = timeout.current_timeout_ms;
             timeout.adjust_based_on_metrics(&metrics);
 

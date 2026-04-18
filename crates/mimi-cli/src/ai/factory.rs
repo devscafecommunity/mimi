@@ -82,6 +82,7 @@ impl AdapterFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::ai::PerformanceTracker;
 
     #[tokio::test]
     async fn test_factory_create_gemini() {
