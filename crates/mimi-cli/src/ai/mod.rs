@@ -2,6 +2,7 @@ pub mod adapter;
 pub mod config;
 pub mod error;
 pub mod factory;
+pub mod gemini_client;
 pub mod registry;
 
 pub use adapter::{AdapterCapabilities, AiAdapter, AiRequest, AiResponse, SharedAdapter};
