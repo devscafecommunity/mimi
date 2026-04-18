@@ -20,9 +20,8 @@ impl ConfigLoader {
             CliError::ConfigError(format!("Cannot read config file {}: {}", path.display(), e))
         })?;
 
-        toml::from_str(&content).map_err(|e| {
-            CliError::ConfigError(format!("Invalid TOML in config file: {}", e))
-        })
+        toml::from_str(&content)
+            .map_err(|e| CliError::ConfigError(format!("Invalid TOML in config file: {}", e)))
     }
 
     /// Save config to file
@@ -71,7 +70,7 @@ impl ConfigLoader {
                     ));
                 }
                 config.log.level = value.to_string();
-            }
+            },
             "memory.max_size" => config.memory.max_size = value.to_string(),
             _ => return Err(CliError::NotFound(format!("Unknown config key: {}", key))),
         }

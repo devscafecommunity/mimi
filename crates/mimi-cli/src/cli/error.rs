@@ -60,9 +60,18 @@ impl CliError {
     /// Format error for user display
     pub fn user_message(&self) -> String {
         match self {
-            CliError::UsageError(msg) => format!("ERROR [E_USAGE]: {}\n  hint: Check syntax with 'mimi --help'", msg),
-            CliError::ConfigError(msg) => format!("ERROR [E_CONFIG]: {}\n  hint: Run 'mimi config init production'", msg),
-            CliError::NetworkError(msg) => format!("ERROR [E_NETWORK]: {}\n  hint: Ensure Zenoh bus is running", msg),
+            CliError::UsageError(msg) => format!(
+                "ERROR [E_USAGE]: {}\n  hint: Check syntax with 'mimi --help'",
+                msg
+            ),
+            CliError::ConfigError(msg) => format!(
+                "ERROR [E_CONFIG]: {}\n  hint: Run 'mimi config init production'",
+                msg
+            ),
+            CliError::NetworkError(msg) => format!(
+                "ERROR [E_NETWORK]: {}\n  hint: Ensure Zenoh bus is running",
+                msg
+            ),
             CliError::AuthError(msg) => format!("ERROR [E_AUTH]: {}", msg),
             CliError::NotFound(msg) => format!("ERROR [E_NOT_FOUND]: {}", msg),
             CliError::IoError(e) => format!("ERROR [E_IO]: {}", e),

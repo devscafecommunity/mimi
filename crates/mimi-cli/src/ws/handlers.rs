@@ -1,6 +1,6 @@
+use actix::{Actor, ActorContext, StreamHandler};
 use actix_web::{web, HttpRequest, HttpResponse};
 use actix_web_actors::ws;
-use actix::{Actor, StreamHandler, ActorContext};
 use serde_json::json;
 
 use super::types::WsMessage;
@@ -26,28 +26,26 @@ impl Actor for WsSession {
 impl StreamHandler<Result<ws::Message, ws::ProtocolError>> for WsSession {
     fn handle(&mut self, msg: Result<ws::Message, ws::ProtocolError>, ctx: &mut Self::Context) {
         match msg {
-            Ok(ws::Message::Text(text)) => {
-                match serde_json::from_str::<WsMessage>(&text) {
-                    Ok(_msg) => {
-                        let response = json!({
-                            "event_type": "connected",
-                            "channel": self.channel
-                        });
-                        ctx.text(response.to_string());
-                    }
-                    Err(_) => {
-                        let error = json!({
-                            "event_type": "error",
-                            "message": "Invalid JSON"
-                        });
-                        ctx.text(error.to_string());
-                    }
-                }
-            }
+            Ok(ws::Message::Text(text)) => match serde_json::from_str::<WsMessage>(&text) {
+                Ok(_msg) => {
+                    let response = json!({
+                        "event_type": "connected",
+                        "channel": self.channel
+                    });
+                    ctx.text(response.to_string());
+                },
+                Err(_) => {
+                    let error = json!({
+                        "event_type": "error",
+                        "message": "Invalid JSON"
+                    });
+                    ctx.text(error.to_string());
+                },
+            },
             Ok(ws::Message::Close(_)) => {
                 ctx.stop();
-            }
-            _ => {}
+            },
+            _ => {},
         }
     }
 }

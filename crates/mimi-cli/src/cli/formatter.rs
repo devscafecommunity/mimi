@@ -32,7 +32,7 @@ impl Formatter {
                 } else {
                     format!("\x1b[32m✓\x1b[0m {}", message)
                 }
-            }
+            },
             OutputFormat::Json => json!({"status": "success", "message": message}).to_string(),
             OutputFormat::Yaml => format!("status: success\nmessage: {}", message),
         }
@@ -47,11 +47,13 @@ impl Formatter {
                 } else {
                     format!("\x1b[31m✗\x1b[0m ERROR [{}]: {}", code, error)
                 }
-            }
-            OutputFormat::Json => json!({"status": "error", "code": code, "message": error}).to_string(),
+            },
+            OutputFormat::Json => {
+                json!({"status": "error", "code": code, "message": error}).to_string()
+            },
             OutputFormat::Yaml => {
                 format!("status: error\ncode: {}\nmessage: {}", code, error)
-            }
+            },
         }
     }
 
@@ -65,21 +67,21 @@ impl Formatter {
                     writeln!(output, "{:<width$} {}", key, value, width = max_key_len + 1).ok();
                 }
                 output
-            }
+            },
             OutputFormat::Json => {
                 let mut obj = serde_json::Map::new();
                 for (key, value) in pairs {
                     obj.insert(key.to_string(), Value::String(value.to_string()));
                 }
                 serde_json::to_string_pretty(&Value::Object(obj)).unwrap_or_default()
-            }
+            },
             OutputFormat::Yaml => {
                 let mut output = String::new();
                 for (key, value) in pairs {
                     writeln!(output, "{}: {}", key, value).ok();
                 }
                 output
-            }
+            },
         }
     }
 
