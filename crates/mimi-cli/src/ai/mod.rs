@@ -1,4 +1,5 @@
 pub mod adapter;
+pub mod adaptive_timeout;
 pub mod config;
 pub mod error;
 pub mod factory;
@@ -8,6 +9,8 @@ pub mod health;
 pub mod health_checker;
 pub mod ollama_adapter;
 pub mod ollama_client;
+pub mod performance;
+pub mod performance_tracker;
 pub mod priority_config;
 pub mod prompt_templates;
 pub mod registry;
