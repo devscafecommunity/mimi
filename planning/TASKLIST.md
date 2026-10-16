@@ -245,29 +245,21 @@ Structure: **Milestone → Phase → Tasks**
 
 ### M1.6: Integration & Testing
 
-**M1.6.1** Write end-to-end integration test suite (M1 components) (#223)
-- Test: CLI command → Message Bus → Mimi core → AI adapter → response
-- Test: HTTP request → Message Bus → Mimi core → response
-- Test: WebSocket connection → Message Bus → streaming responses
-- Test: Error scenarios (network failure, timeout, invalid input)
+**M1.6.1** ✅ Write end-to-end integration test suite (M1 components) (#223)
+- 39 e2e tests under `crates/mimi-cli/tests/e2e_*.rs`
+- **Status**: COMPLETE — plan in `docs/plans/M1.6.1-e2e-integration-tests.md`
 
-**M1.6.2** Write performance benchmarks (M1 components) (#224)
-- Benchmark message bus latency (publish/subscribe/request-reply)
-- Benchmark FlatBuffers serialization/deserialization
-- Benchmark Mimi state machine throughput
-- Benchmark Beatrice CLI startup time
+**M1.6.2** ✅ Write performance benchmarks (M1 components) (#224)
+- Criterion suites: `mimi-core` (serialization, state machine, Zenoh adapter) + `mimi-cli` startup parsing
+- **Status**: COMPLETE — see `docs/M1.6.2-BENCHMARKS.md`
 
-**M1.6.3** Write documentation for M1 (#225)
-- API documentation (FlatBuffers schema, Mimi core API, Beatrice endpoints)
-- Architecture diagrams and sequence diagrams
-- Installation and quickstart guide
-- Troubleshooting guide for common issues
+**M1.6.3** ✅ Write documentation for M1 (#225)
+- `ARCHITECTURE-OVERVIEW.md`, `SEQUENCE-DIAGRAMS.md`, `QUICKSTART.md`, `API-REFERENCE.md`, `TROUBLESHOOTING.md`
+- **Status**: COMPLETE — indexed in `docs/README.md`
 
-**M1.6.4** Prepare M1 for deployment (#226)
-- Build Docker image for Mimi core
-- Create docker-compose for M1 (Zenoh, Mimi, Beatrice server)
-- Write deployment checklist and run procedures
-- Create monitoring dashboard (if applicable)
+**M1.6.4** ✅ Prepare M1 for deployment (#226)
+- Dockerfile builds `mimi` CLI; env templates; `DEPLOYMENT.md`, `MONITORING.md`, `SCALING.md`
+- **Status**: COMPLETE (Grafana dashboard optional / not blocking)
 
 ---
 
@@ -275,29 +267,23 @@ Structure: **Milestone → Phase → Tasks**
 
 ### M2.1: Neo4j Environment & Schema Setup
 
-**M2.1.1** Set up Neo4j database instance
-- Create Neo4j Docker container (Community or Enterprise)
-- Configure Neo4j parameters (memory, query timeout)
+**M2.1.1** ✅ Set up Neo4j database instance
+- Neo4j 5.15 in `docker-compose.yml` (`mimi-neo4j`)
+- **Status**: READY — see `docs/M2.1-NEO4J-SCHEMA.md`
 - Set up authentication (username/password)
 - Create backup/restore procedures
 
-**M2.1.2** Design Neo4j graph schema
-- Define node types (Context, Skill, Parameter, Resource, Metadata)
-- Define relationships (HAS, EXECUTES, DEPENDS_ON, REFERENCES)
-- Design properties for each node/relationship
-- Plan indexing strategy (nodes and relationships to index)
+**M2.1.2** ✅ Design Neo4j graph schema
+- `docker/neo4j/schema.cypher` + `docs/M2.1-NEO4J-SCHEMA.md`
+- **Status**: COMPLETE
 
-**M2.1.3** Implement Neo4j DDL in Cypher
-- Write CREATE CONSTRAINT statements for unique properties
-- Write CREATE INDEX statements for query performance
-- Write stored procedures for common operations
-- Test schema creation and idempotency
+**M2.1.3** ✅ Implement Neo4j DDL in Cypher
+- Constraints/indexes with `IF NOT EXISTS`; apply via `scripts/neo4j-apply-schema.sh`
+- **Status**: COMPLETE
 
-**M2.1.4** Design initialization & seeding
-- Define initial context seed data (system skills, base resources)
-- Write seeding Cypher scripts
-- Plan data migration strategy if upgrading schema
-- Test seeding and data consistency
+**M2.1.4** ✅ Design initialization & seeding
+- `docker/neo4j/seed.cypher`; migration notes in M2.1 doc
+- **Status**: COMPLETE
 
 ---
 
@@ -309,156 +295,108 @@ Structure: **Milestone → Phase → Tasks**
 - Define temperature scale (0.0 = cold/forgotten, 1.0 = hot/frequent)
 - Plan temperature update frequency and batch size
 
-**M2.2.2** Implement temperature decay in C++
-- Create HeatmapManager class with update loop
-- Implement decay formula with high precision
-- Add threshold filtering (remove nodes < threshold)
-- Write unit tests for decay calculations
+**M2.2.2** ✅ Implement temperature decay (Rust + C++)
+- Rust: `crates/mimi-core/src/heatmap.rs`
+- C++: `crates/pandora-memory/include/heatmap.hpp`
+- **Status**: COMPLETE — unit tests in both crates
 
-**M2.2.3** Implement heatmap persistence to Neo4j
-- Design schema for storing temperatures (node properties or separate relationship)
-- Implement periodic batch updates to Neo4j
-- Add transaction handling and error recovery
-- Write tests for persistence layer
+**M2.2.3** ✅ Implement heatmap persistence to Neo4j
+- `PandoraClient`: `touch_context`, `flush_heatmap`, `hot_contexts` via `neo4rs`
+- Doc: `docs/M2.2-HEATMAP-NEO4J.md`; integration test `pandora_neo4j_integration` (`--ignored`)
+- **Status**: COMPLETE
 
-**M2.2.4** Implement heatmap query interface
-- Create query methods (get_hot_nodes, get_by_temperature_range, get_recent)
-- Implement BFS for context-aware queries (nearby high-temp nodes)
-- Add filtering by node type, relationship type
-- Write tests for all query types
+**M2.2.4** ✅ Implement heatmap query interface
+- `PandoraClient` query API + `resolve_context_for_query`
+- CLI: `mimi query --include-context`
+- **Status**: COMPLETE — see `docs/M2.2-HEATMAP-NEO4J.md`
 
-**M2.2.5** Implement heatmap optimization
-- Add in-memory L1 cache for hot nodes (capacity ~1000)
-- Implement cache eviction policy (LRU)
-- Add cache hit/miss metrics
-- Write tests for cache behavior
+**M2.2.5** ✅ Implement heatmap optimization
+- `L1ContextCache` in `crates/mimi-core/src/l1_cache.rs` (LRU, capacity 1000)
+- Wired into `PandoraClient` (`get_context`, touch/hot paths); `l1_cache_stats()`
+- CLI: `mimi debug memory-stats`
+- **Status**: COMPLETE — unit tests in `l1_cache.rs`
 
 ---
 
 ### M2.3: Neo4j Bolt Driver (C++)
 
-**M2.3.1** Evaluate & select C++ Neo4j driver
-- Review libneo4j-client and neo4j-cpp-driver options
-- Benchmark query performance and resource usage
-- Decide on version and update strategy
+**M2.3.1** ✅ Evaluate & select C++ Neo4j driver
+- **Decision:** official `neo4j-cpp-driver` behind `pandora::bolt::ConnectionPool` (mock backend for CI)
+- Doc: `docs/M2.3-NEO4J-CPP-DRIVER.md`
 
-**M2.3.2** Implement Neo4j connection pool
-- Create connection pooling layer (size, timeout, validation)
-- Implement connection health checks
-- Add automatic reconnection on failure
-- Write tests for pool behavior
+**M2.3.2** ✅ Implement Neo4j connection pool (mock)
+- `crates/pandora-memory/include/bolt_client.hpp` — connect, health, stats
 
-**M2.3.3** Implement Neo4j query execution layer
-- Create query builder for common operations
-- Implement result set parsing and type conversion
-- Add error handling and logging
-- Write tests for query execution
+**M2.3.3** ✅ Implement Neo4j query execution layer (mock)
+- `ConnectionPool::run`, `QueryResult`, context MERGE/MATCH stubs
 
-**M2.3.4** Implement Neo4j transaction layer
-- Create transaction wrapper (begin, commit, rollback)
-- Implement transaction timeout and automatic rollback
-- Add nested transaction support (savepoints)
-- Write tests for transaction scenarios
+**M2.3.4** ✅ Implement Neo4j transaction layer (mock)
+- `begin_transaction`, commit, rollback — tests in `test_bolt_client.cpp`
 
-**M2.3.5** Implement parameterized queries
-- Create parameter binding to prevent injection
-- Implement query templating for common patterns
-- Add query validation before execution
-- Write tests for parameter handling
+**M2.3.5** ✅ Implement parameterized queries
+- `validate_parameters` — required `$placeholders`
+
+**Next:** optional `PANDORA_ENABLE_NEO4J_CPP` + link real driver; reconnect/backoff
 
 ---
 
 ### M2.4: Pandora Memory Engine Core
 
-**M2.4.1** Design Pandora initialization & bootstrapping
-- Define startup sequence (Neo4j connect, heatmap initialize, cache prepare)
-- Plan warm-up period for cache population
-- Design configuration loading from files
-- Write tests for initialization
+**M2.4.1** ✅ Design Pandora initialization & bootstrapping (C++)
+- `MemoryManager::initialize` — Bolt ping → LRU + `HeatmapManager`
+- Tests: `test_memory_manager.cpp`
 
-**M2.4.2** Implement Pandora context retrieval
-- Create interface for querying context by ID/name
-- Implement hierarchical context resolution (specific → general)
-- Add filtering by context type, metadata
-- Write tests for retrieval performance
+**M2.4.2** ✅ Implement Pandora context retrieval (Rust)
+- `PandoraClient::get_context`, `search_contexts`, `resolve_context_for_query`
 
-**M2.4.3** Implement Pandora context storage
-- Create interface for storing new contexts
-- Implement automatic temperature initialization (T₀)
-- Add validation for context structure
-- Write tests for storage operations
+**M2.4.3** ✅ Implement Pandora context storage (Rust)
+- `PandoraClient::store_context`
 
-**M2.4.4** Implement Pandora context update
-- Create interface for updating context properties
-- Implement temperature boost on access (refresh T)
-- Add validation for update consistency
-- Write tests for update scenarios
+**M2.4.4** ✅ Implement Pandora context update (Rust)
+- `touch_context` + heatmap boost; `flush_heatmap`
 
-**M2.4.5** Implement Pandora context relationships
-- Create interface for linking contexts (HAS, DEPENDS_ON, etc.)
-- Implement relationship validation
-- Add relationship queries and traversals
-- Write tests for relationship operations
+**M2.4.5** ✅ Implement Pandora context relationships (Rust)
+- `link_contexts` + `ContextRelation` enum
 
-**M2.4.6** Implement Pandora skill registration
-- Create interface for registering new skills in graph
-- Implement automatic skill indexing and tagging
-- Add skill parameter tracking
-- Write tests for skill registration
+**M2.4.6** ✅ Implement Pandora skill registration (Rust, baseline)
+- `register_skill(id, name, status)`
+
+**Next:** C++ parity APIs, config files, skill parameters
 
 ---
 
 ### M2.5: LRU Cache Layer (L1 Cache)
 
-**M2.5.1** Design LRU cache architecture
-- Define cache capacity (initially ~1000 nodes)
-- Define eviction policy (least recently used)
-- Plan metrics collection (hit rate, eviction count)
-- Design cache coherency (invalidation triggers)
-
-**M2.5.2** Implement LRU cache in Rust
-- Create LRU cache structure with O(1) access
-- Implement eviction on capacity exceeded
-- Add expiration support (TTL)
-- Write unit tests for cache operations
-
-**M2.5.3** Implement cache-aware Pandora queries
-- Route queries through cache first
-- Implement cache miss → Neo4j fetch → cache insert
-- Add cache invalidation on context updates
-- Write tests for cache-miss and cache-hit paths
-
-**M2.5.4** Implement cache statistics & tuning
-- Add metrics (hit rate, eviction rate, capacity utilization)
-- Implement dynamic capacity adjustment (if needed)
-- Add cache warming on startup
-- Write tests for metrics collection
+**M2.5.1–M2.5.4** ✅ (Rust + C++)
+- Rust: `l1_cache.rs`, `PandoraClient` integration, `mimi debug memory-stats`
+- C++: `lru_cache.hpp` + unit tests
+- **Next:** cache invalidation on `store_context`, startup warm-up
 
 ---
 
 ### M2.6: Pandora Integration with M1
 
-**M2.6.1** Connect Pandora to Mimi core
-- Implement Mimi → Pandora message types
-- Add context retrieval calls from Mimi task execution
-- Implement context updates after skill execution
-- Write integration tests (Mimi → Pandora → Neo4j)
+**M2.6.1** ✅ Connect Pandora to Mimi core
+- `pandora_integration.rs`: `PandoraBusMessage`, `fetch_task_context`, `record_task_outcome`
+- Tests: `pandora_mimi_integration`, `pandora_integration` unit tests
 
-**M2.6.2** Implement Pandora → Neo4j persistence
-- Add periodic flush of cached contexts to Neo4j
-- Implement transaction batching for efficiency
-- Add error handling for persistence failures
-- Write integration tests with real Neo4j
+**M2.6.2** ✅ Implement Pandora → Neo4j persistence
+- `flush_with_retry`, `PandoraFlushLoop` + `PANDORA_FLUSH_INTERVAL_SECS`
+- CLI flush after `exec` / `query --include-context`
 
-**M2.6.3** Implement context-aware task execution
-- Modify Mimi executor to fetch context before task
-- Pass context to skills during execution
-- Update context with execution results
-- Write tests for context flow
+**M2.6.3** ✅ Implement context-aware task execution
+- `execute_task_with_context`, `execute_next_task_with_pandora`
+- `mimi exec` injects Pandora `system_context`
+- Doc: `docs/M2.6-PANDORA-MIMI.md`
+
+**Next:** Zenoh publish of `PandoraBusMessage`; long-running daemon with flush loop
 
 ---
 
 ### M2.7: Testing & Benchmarking
+
+**M2.7.0** ✅ M2 acceptance checklist
+- `docs/M2.7-ACCEPTANCE.md`; `tests/m2_acceptance.rs`; critérios em `M2-PANDORA.md`
 
 **M2.7.1** Write Pandora unit tests
 - Test temperature decay calculations
@@ -488,27 +426,29 @@ Structure: **Milestone → Phase → Tasks**
 
 ## M3: SECURITY — Isolation, Watchdog, Sandboxing
 
+> **Próximo foco:** Priscilla `task/draft` subscriber, analyzers 3–5, `priscilla-rules.toml`. Ver `planning/milestones/M3-SECURITY.md`.
+
 ### M3.1: Docker Isolation & Resource Limits
 
-**M3.1.1** Design container security architecture
-- Define resource limits (CPU: 50%, memory: 256MB per skill container)
-- Design network isolation (none driver by default, explicit bridges for inter-skill communication)
-- Plan logging and audit trail (all container lifecycle events)
-- Document security philosophy (defense-in-depth)
+**M3.1.1** ✅ Design container security architecture
+- Doc: `docs/M3.1-DOCKER-ISOLATION.md`
 
-**M3.1.2** Implement Skill Container Runtime
-- Create Dockerfile for skill execution container
-- Define container entry point and signal handling
-- Implement resource limits (cpuset, memory cgroup)
-- Write tests for container startup/shutdown
+**M3.1.2** ✅ Implement Skill Container Runtime (baseline)
+- `docker/Dockerfile.worker`, `docker/worker-entry.sh`
+- `crates/ryzu-runtime` (`MockSkillRuntime`, optional `docker` + Bollard)
 
-**M3.1.3** Implement Container Orchestration
-- Create container lifecycle manager (create, start, stop, remove)
-- Implement container pooling for performance
-- Add container restart on failure (with backoff)
+**M3.1.3** 🟡 Container orchestration (baseline)
+- ✅ `BollardSkillRuntime`: create/start, wait/finish, `kill_container` (Odlaguna)
+- ✅ `run_bollard_skill_supervised` — lease + `intervene_expired_containers` → kill (`docker-kill`)
+- ✅ `run_isolated_skill_supervised` + `execute_task_with_context` payload + `mimi debug skill-run`
+- ✅ `SkillContainerPool` (concurrency cap) + `run_with_restart` / `run_managed`
+- Create container lifecycle manager (create, start, stop, remove) — partial via `run_once` / `kill_container`
+- ✅ Warm pool baseline — `ryzu-runtime/warm_pool.rs` (`prewarm_image` + `SkillContainerPool` in `BollardSkillRuntime`)
+- ✅ Add container restart on failure (with backoff) — `RestartPolicy`
 - Write tests for container management
 
-**M3.1.4** Implement Container Networking
+**M3.1.4** 🟡 Container networking (baseline test)
+- ✅ `docker_integration` test `network_none_blocks_egress` (`DOCKER_INTEGRATION=1`)
 - Design network configuration for skill isolation
 - Implement inter-skill communication if needed (explicit bridges)
 - Add network policy enforcement
@@ -524,70 +464,91 @@ Structure: **Milestone → Phase → Tasks**
 
 ### M3.2: Odlaguna Watchdog System
 
-**M3.2.1** Design Odlaguna architecture & state machine
-- Define states: IDLE, MONITORING, ALERTING, INTERVENTION, SHUTDOWN
-- Define monitoring triggers (timeout, resource exceeded, crash)
-- Plan intervention strategies (terminate, suspend, alert)
-- Document state transitions and guard conditions
+**M3.2.1** ✅ Design Odlaguna architecture & state machine
+- Doc: `docs/M3.2-ODLAGUNA.md`
 
-**M3.2.2** Implement Odlaguna core in Rust
-- Create state machine using enum-based pattern
-- Implement task monitoring loop (health checks, metrics collection)
-- Add signal handling for alerts
-- Write unit tests for state machine
+**M3.2.2** ✅ Implement Odlaguna core in Rust (baseline)
+- `mimi-core/src/odlaguna.rs` — register/complete/poll_expired + audit trail
 
-**M3.2.3** Implement timeout enforcement
+**M3.2.3** 🟡 Timeout enforcement (baseline)
+- ✅ `odlaguna_deadline` + `mimi exec` + `execute_task_with_context`
 - Create timeout tracking per running task
 - Implement timeout detection (elapsed >= configured timeout)
 - Implement timeout action (terminate container gracefully, then forcefully)
 - Write tests for timeout scenarios
 
-**M3.2.4** Implement resource limit enforcement
+**M3.2.4** 🟡 Resource limit enforcement (baseline)
+- ✅ Docker stats polling (`cgroup.rs`) during `finish_skill_container` → `ResourceExceeded` + kill
 - Monitor container CPU and memory usage (via cgroup)
 - Detect resource exceeded conditions
 - Implement intervention (pause, kill)
 - Write tests for resource detection
 
-**M3.2.5** Implement health check & crash recovery
+**M3.2.5** 🟡 Health check & crash recovery (baseline)
+- ✅ Worker `mimi-heartbeat` + `heartbeat_interval_secs` + `HeartbeatLost`
+- ✅ `ryzu-runtime/src/heartbeat.rs` log polling
 - Define health check protocol (ping, heartbeat, status endpoint)
 - Implement health check polling (interval, retries)
 - Detect crash or hang (no response)
 - Implement automatic restart or alert
 - Write tests for health check scenarios
 
-**M3.2.6** Implement audit logging
-- Log all Odlaguna interventions (timeout, resource, restart)
-- Log all task lifecycle events (start, complete, error)
-- Add structured logging for analysis
-- Write tests for audit log
+**M3.2.6** 🟡 Implement audit logging (baseline)
+- ✅ `OdlagunaAudit` Neo4j + in-memory (`record_odlaguna_intervention`, `emit_intervention_side_effects`)
+- ✅ Zenoh `mimi/task/timeout` on expired leases (`MIMI_ZENOH=1` on `mimi exec`)
+- Log all task lifecycle events (start, complete, error) — partial (`odlaguna.audit` tracing)
+- Write tests for audit log — ✅ `odlaguna_intervention::tests::audit_and_zenoh_hooks_run`
 
 ---
 
 ### M3.3: Circuit Breaker Pattern
 
-**M3.3.1** Design circuit breaker state machine
+**M3.3.1** ✅ Circuit breaker state machine (existing `state_machine::CircuitBreaker`)
+
+**M3.3.x baseline** 🟡
+- ✅ `with_circuit_breaker` + Pandora/AI on `mimi exec` and `mimi query`
+- ✅ `CircuitBreakerSnapshot` metrics (`circuit_metrics.rs`, `breaker.snapshot()`)
+- Alternate adapter fallback + daemon-wide breakers — pending
+
+**M3.3.1 (detail)** Design circuit breaker state machine
 - Define states: CLOSED (normal), OPEN (failing), HALF_OPEN (testing)
 - Define thresholds (consecutive failures = 3 → OPEN, successes = N → CLOSED)
 - Plan timeout before HALF_OPEN (exponential backoff)
 - Document fallback behavior in OPEN state
 
-**M3.3.2** Implement circuit breaker for Mimi → Pandora calls
-- Track consecutive failures (Neo4j calls, context retrieval)
-- Implement state transitions (CLOSED → OPEN → HALF_OPEN)
-- Add fallback for OPEN state (cached data, empty context)
-- Write unit tests for state transitions
+**M3.3.2** 🟡 Circuit breaker Mimi → Pandora (baseline)
+- ✅ `circuit_breakers()` + `pandora_context_with_fallback` + L1 fallback
+- ✅ Test `pandora_open_uses_l1_when_populated`
+- Neo4j-persisted breaker state — pending
 
-**M3.3.3** Implement circuit breaker for Mimi → AI adapter calls
-- Track consecutive API failures (Gemini, Ollama)
-- Implement state transitions with adaptive thresholds
-- Add fallback (retry with alternate adapter)
-- Write tests for failure scenarios
+**M3.3.3** 🟡 Circuit breaker Mimi → AI (baseline)
+- ✅ `invoke_ai_with_fallback` + registry alternate adapter
+- Adaptive thresholds — pending
 
-**M3.3.4** Implement circuit breaker metrics
-- Track state transitions and duration in each state
-- Track fallback invocations
-- Add alerting for sustained OPEN state
-- Write tests for metrics
+**M3.3.4** 🟡 Circuit breaker metrics + alerts (baseline)
+- ✅ `CircuitBreakerSnapshot`, `sustained_open_alerts`, `circuit.alert` log (`SUSTAINED_OPEN_ALERT_MS`)
+- ✅ `docker_skill_integration` + `ryzu-runtime` `docker_integration` (`#[ignore]`)
+- Prometheus/Grafana export — pending
+
+---
+
+### T3.5: Priscilla (baseline)
+
+- ✅ `mimi-core/priscilla.rs` — `TaskDraftMessage`, `CritiqueCommentaryMessage`, necessity/cost heuristics
+- ✅ `mimi debug priscilla-critique --text "..."` (JSON with `--output json`)
+- Subscriber `task/draft`, analyzers 3–5, `priscilla-rules.toml` — pending
+
+### T3.6: Priscilla failure patterns (baseline)
+
+- ✅ `priscilla_failure.rs` — temporal weighting + intent similarity
+- ✅ `PandoraClient::query_failure_patterns` (in-memory audit + Neo4j)
+- ✅ `critique_with_pandora` + `--with-patterns` on CLI
+
+### M3 daemon / bus
+
+- ✅ `mimi daemon` — `PandoraFlushLoop` + `OdlagunaSupervisorLoop`
+- ✅ `InterventionContext` on `run_isolated_skill_supervised` / `execute_task_with_context`
+- ✅ Zenoh native behind `zenoh-bus` feature (`ZENOH_*` env)
 
 ---
 

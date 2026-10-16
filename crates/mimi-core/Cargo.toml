@@ -20,10 +20,48 @@ chrono.workspace = true
 log.workspace = true
 num_cpus = "1.16"
 rand = "0.8"
+neo4rs = "0.8"
+ryzu-runtime = { path = "../ryzu-runtime" }
+zenoh = { version = "1.4.0", default-features = true, optional = true }
+
+[features]
+default = []
+docker-kill = ["ryzu-runtime/docker"]
+zenoh-bus = ["dep:zenoh"]
 
 [dev-dependencies]
 tokio-test = "0.4"
+criterion = { version = "0.5", features = ["html_reports"] }
 
 [[test]]
 name = "integration"
 path = "tests/integration.rs"
+
+[[test]]
+name = "pandora_neo4j_integration"
+path = "tests/pandora_neo4j_integration.rs"
+
+[[bench]]
+name = "serialization_benchmarks"
+harness = false
+
+[[bench]]
+name = "state_machine_benchmarks"
+harness = false
+
+[[bench]]
+name = "zenoh_bus_benchmarks"
+harness = false
+
+[[bench]]
+name = "pandora_neo4j_benchmarks"
+harness = false
+
+[[test]]
+name = "m2_acceptance"
+path = "tests/m2_acceptance.rs"
+
+[[test]]
+name = "docker_skill_integration"
+path = "tests/docker_skill_integration.rs"
+required-features = ["docker-kill"]

@@ -1,9 +1,35 @@
 # M3: Segurança e Supervisão (Odlaguna & Priscilla)
 
 > **Milestone Objetivo:** Implementar watchdog, timeouts, isolamento de segurança e camada crítica de racionalidade  
-> **Status:** 🟡 Bloqueado por M1+M2  
+> **Status:** 🟢 Em progresso — **M3.1–M3.3 + daemon supervisor, Zenoh native (feature), Priscilla T3.6 baseline**; subscriber `task/draft` e analyzers avançados por fazer  
 > **Duração Estimada:** 12 semanas (8 Odlaguna + 4 Priscilla)  
 > **Dependências:** M1 (Message Bus) + M2 (Pandora)  
+
+---
+
+## Progresso de implementação (repo atual)
+
+| Área | TASKLIST | Estado | Artefatos principais |
+|------|----------|--------|----------------------|
+| Docker / Ryzu | M3.1.1–1.3 | 🟡 Baseline | `crates/ryzu-runtime`, `docker/Dockerfile.worker`, `BollardSkillRuntime`, `SkillContainerPool`, `RestartPolicy`, `run_isolated_skill_supervised`, `mimi debug skill-run` |
+| Odlaguna | M3.2.1–2.6 | 🟡 Baseline | `odlaguna.rs`, `skill_supervision`, `odlaguna_intervention`, Neo4j `:OdlagunaAudit`, Zenoh `task/timeout` |
+| Warm pool | M3.1.3 | 🟡 Baseline | `ryzu-runtime/warm_pool.rs`, `BollardSkillRuntime::prewarm_worker_image` |
+| Priscilla | T3.5–T3.6 | 🟡 Baseline | `priscilla.rs`, `priscilla_failure.rs`, `--with-patterns` |
+| Daemon | M2.6 + M3 | 🟡 Baseline | `mimi daemon`, `mimi_daemon.rs`, `odlaguna_supervisor.rs` |
+| Zenoh | Bus | 🟡 Baseline | `zenoh-bus` feature, `ZENOH_*` env; mock sem feature |
+| Circuit breaker | M3.3.1–3.3.3 | 🟡 Baseline | `circuit_breakers()`, `pandora_context_with_fallback`, `invoke_ai_with_fallback`, `debug circuit-stats` |
+| Docs | — | ✅ | `docs/M3.1-DOCKER-ISOLATION.md`, `M3.2-ODLAGUNA.md`, `M3.3-CIRCUIT-BREAKER.md` |
+
+**Mapeamento planning → código:** T3.0 (Docker+Ryzu) ≈ M3.1; T3.2 (timeouts/lease) ≈ M3.2.2–2.3; T3.3 (circuit breaker) ≈ M3.3. T3.1 (WASM fuel) = M3.4 futuro. Crate `odlaguna-guard` do desenho original foi consolidado em **`mimi-core`**.
+
+### Próxima task recomendada (M3)
+
+1. **Priscilla T3.7+** — `priscilla-rules.toml`, cynicism por risco, subscriber Zenoh `task/draft`.  
+2. **M3.2.6** — lifecycle audit completo (start/complete/error além de timeout).  
+3. **Gating / Beatrice** — integrar critique no pipeline antes do exec.  
+4. **Prometheus** — exportar métricas do supervisor + circuit breakers.
+
+**Feito recente:** `mimi daemon`, supervisor 100ms, Zenoh native (`zenoh-bus`), T3.6 failure patterns, audit em skills isolados.
 
 ---
 
@@ -163,11 +189,11 @@ ENTRYPOINT ["mimi-worker-runtime"]
 ```
 
 **DoD:**
-- [ ] Docker container inicia sem erros
-- [ ] Resource limits aplicados (CPU, RAM testados)
-- [ ] Network isolada (ping localhost falha fora do container)
-- [ ] Stdout/stderr capturados
-- [ ] Process kill funciona < 100ms
+- [x] Docker container inicia sem erros (`start_skill_container` + worker image)
+- [x] Resource limits aplicados (HostConfig + stats M3.2.4)
+- [ ] Network isolada validada em teste automatizado (M3.1.4)
+- [x] Stdout/stderr capturados (`finish_skill_container` logs)
+- [x] Kill via Odlaguna / timeout (`kill_container`, `intervene_expired_containers`)
 
 ---
 
@@ -363,10 +389,10 @@ impl TimerWheel {
 ```
 
 **DoD:**
-- [ ] Lease é criado com deadline
-- [ ] Timer wheel monitora leases
-- [ ] Expiração dispara SIGKILL
-- [ ] Callback publicado no Bus
+- [x] Lease é criado com deadline (`OdlagunaWatchdog::register_task*`)
+- [x] Timer wheel / loop global no daemon (`OdlagunaSupervisorLoop`, `mimi daemon`)
+- [x] Expiração dispara kill de container (`docker-kill`)
+- [x] Callback publicado no Bus (Zenoh `mimi/task/timeout` via `emit_intervention_side_effects`; mock até Zenoh real)
 
 ---
 
@@ -463,10 +489,14 @@ impl CircuitBreaker {
 ```
 
 **DoD:**
-- [ ] Circuit breaker state machine funciona
-- [ ] Falhas são rastreadas
-- [ ] Circuit abre após 3 falhas
-- [ ] Reset funciona após sucessos
+- [x] Circuit breaker state machine funciona (`mimi-core/state_machine::CircuitBreaker`)
+- [x] Falhas / fallbacks rastreadas (`circuit_metrics`, `breaker.snapshot()`)
+- [x] Circuit abre após N falhas; half-open após timeout
+- [x] Reset após sucesso em half-open
+- [ ] Breaker por skill no Neo4j + alerta OPEN sustentado (M3.3.2–3.3.4 restante)
+- [ ] Fallback adapter alternativo (M3.3.3)
+
+**Implementado em:** `circuit_guard.rs`, `docs/M3.3-CIRCUIT-BREAKER.md` (não `odlaguna-guard`).
 
 ---
 
@@ -626,10 +656,10 @@ LIMIT 1000
 
 | RNF | Alvo | Status |
 |-----|------|--------|
-| **RNF-2** (Segurança) | Docker isolation | ✅ T3.0 |
-| **RNF-2** (Segurança) | Sem acesso /etc | ✅ T3.4 |
-| **RNF-3** (Resiliência) | Zombie cleanup < 5s | ✅ T3.2 |
-| **RNF-3** (Resiliência) | Zero data loss | ✅ T3.5 |
+| **RNF-2** (Segurança) | Docker isolation | 🟡 T3.0 baseline |
+| **RNF-2** (Segurança) | Sem acesso /etc | ⬜ T3.4 |
+| **RNF-3** (Resiliência) | Zombie cleanup < 5s | 🟡 T3.2 (kill; sem Bus callback) |
+| **RNF-3** (Resiliência) | Zero data loss | ⬜ T3.5 |
 
 ---
 
@@ -651,12 +681,12 @@ LIMIT 1000
 
 ✅ **Milestone 3 Completo quando:**
 
-- [ ] Docker container isolado + Ryzu rodando
-- [ ] Odlaguna monitorando Bus
-- [ ] Timeouts funcionam (tarefa+5s executa → kill)
-- [ ] Skill simples (Bash) executa under Odlaguna
+- [x] Docker container isolado + Ryzu rodando (baseline)
+- [ ] Odlaguna monitorando Bus (não-bloqueante)
+- [x] Timeouts funcionam (Odlaguna + kill container)
+- [x] Skill simples executa under Odlaguna (`debug skill-run`, payload isolado)
 - [ ] Audit Trail completo no Neo4j
-- [ ] Circuit Breaker ativa após 3 falhas
+- [x] Circuit Breaker ativa após N falhas (CLI; falta daemon + skills)
 - [ ] Code validation rejeita operações maliciosas
 - [ ] Zero kernel panics
 - [ ] All tests pass

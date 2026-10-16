@@ -11,6 +11,9 @@ pub struct Message {
     pub payload: serde_json::Value,
 }
 
+/// Pandora-aware task envelope (see `pandora_integration::PandoraBusMessage`).
+pub use crate::pandora_integration::PandoraBusMessage;
+
 /// Task message for Zenoh bus
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TaskMessage {

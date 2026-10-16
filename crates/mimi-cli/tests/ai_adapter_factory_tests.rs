@@ -23,7 +23,7 @@ async fn test_factory_unknown_adapter() {
 }
 
 #[tokio::test]
-async fn test_factory_gemini_not_yet_implemented() {
+async fn test_factory_gemini_creates_adapter() {
     let config = AdapterConfig {
         adapter_type: "gemini".to_string(),
         api_key: Some("key".to_string()),
@@ -34,12 +34,11 @@ async fn test_factory_gemini_not_yet_implemented() {
     };
 
     let result = AdapterFactory::create(&config).await;
-    assert!(result.is_err());
-    // Will change once Gemini adapter is implemented
+    assert!(result.is_ok());
 }
 
 #[tokio::test]
-async fn test_factory_ollama_not_yet_implemented() {
+async fn test_factory_ollama_creates_adapter() {
     let config = AdapterConfig {
         adapter_type: "ollama".to_string(),
         api_key: None,
@@ -50,6 +49,5 @@ async fn test_factory_ollama_not_yet_implemented() {
     };
 
     let result = AdapterFactory::create(&config).await;
-    assert!(result.is_err());
-    // Will change once Ollama adapter is implemented
+    assert!(result.is_ok());
 }

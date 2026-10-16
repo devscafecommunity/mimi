@@ -1,5 +1,4 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
@@ -56,13 +55,13 @@ impl Default for Config {
     fn default() -> Self {
         Config {
             adapter: AdapterConfig {
-                default: "gemini".to_string(),
+                default: "ollama".to_string(),
                 gemini: GeminiConfig {
                     api_key: None,
                     model: "gemini-pro".to_string(),
                 },
                 ollama: OllamaConfig {
-                    url: "http://localhost:11434".to_string(),
+                    url: "https://ollama.com".to_string(),
                 },
             },
             bus: BusConfig {
@@ -88,6 +87,8 @@ impl Default for Config {
 /// Get development profile config
 pub fn development_profile() -> Config {
     let mut cfg = Config::default();
+    cfg.adapter.default = "ollama".to_string();
+    cfg.adapter.ollama.url = "https://ollama.com".to_string();
     cfg.log.level = "debug".to_string();
     cfg.security.enable_audit = false;
     cfg

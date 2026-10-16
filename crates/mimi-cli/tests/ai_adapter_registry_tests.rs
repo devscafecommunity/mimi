@@ -1,4 +1,4 @@
-use mimi_cli::ai::{AdapterError, AdapterRegistry};
+use mimi_cli::ai::AdapterRegistry;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
@@ -60,7 +60,7 @@ async fn test_registry_register_and_get() {
     }));
 
     registry
-        .register("test".to_string(), adapter.clone())
+        .register_with_health("test".to_string(), adapter.clone())
         .await
         .unwrap();
     let _retrieved = registry.get("test").await.unwrap();
@@ -82,7 +82,7 @@ async fn test_registry_remove() {
     }));
 
     registry
-        .register("test".to_string(), adapter)
+        .register_with_health("test".to_string(), adapter)
         .await
         .unwrap();
     assert_eq!(registry.list().await.len(), 1);
@@ -102,11 +102,11 @@ async fn test_registry_list() {
     }));
 
     registry
-        .register("adapter1".to_string(), adapter1)
+        .register_with_health("adapter1".to_string(), adapter1)
         .await
         .unwrap();
     registry
-        .register("adapter2".to_string(), adapter2)
+        .register_with_health("adapter2".to_string(), adapter2)
         .await
         .unwrap();
 

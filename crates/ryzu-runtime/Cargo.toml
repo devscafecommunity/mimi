@@ -1,0 +1,33 @@
+[package]
+name = "ryzu-runtime"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "MiMi skill container runtime (Ryzu / M3.1)"
+
+[features]
+default = []
+docker = ["bollard", "futures-util"]
+
+[dependencies]
+anyhow.workspace = true
+serde = { workspace = true }
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tracing.workspace = true
+uuid.workspace = true
+chrono.workspace = true
+
+bollard = { version = "0.18", optional = true }
+futures-util = { version = "0.3", optional = true }
+
+[dev-dependencies]
+tokio-test.workspace = true
+
+[[test]]
+name = "docker_integration"
+path = "tests/docker_integration.rs"
+required-features = ["docker"]

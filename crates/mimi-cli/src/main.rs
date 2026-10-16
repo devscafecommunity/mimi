@@ -5,6 +5,8 @@ use std::process;
 
 #[tokio::main]
 async fn main() {
+    let _ = dotenvy::dotenv();
+
     let cli = Cli::parse();
 
     // Initialize logging

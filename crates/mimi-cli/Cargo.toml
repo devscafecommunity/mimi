@@ -12,6 +12,7 @@ path = "src/main.rs"
 
 [dependencies]
 mimi-core = { path = "../mimi-core" }
+ryzu-runtime = { path = "../ryzu-runtime", optional = true }
 tokio = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 tracing = { workspace = true }
@@ -36,6 +37,12 @@ futures = "0.3"
 tempfile = "3.8"
 async-trait = "0.1"
 reqwest = { version = "0.11", features = ["json"] }
+dotenvy = "0.15"
+
+[features]
+default = []
+docker-supervision = ["mimi-core/docker-kill", "ryzu-runtime/docker"]
+zenoh-bus = ["mimi-core/zenoh-bus"]
 
 [dev-dependencies]
 criterion = { version = "0.5", features = ["html_reports"] }
@@ -48,4 +55,8 @@ harness = false
 
 [[bench]]
 name = "auth_benchmarks"
+harness = false
+
+[[bench]]
+name = "startup_benchmarks"
 harness = false

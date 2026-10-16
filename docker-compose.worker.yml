@@ -1,0 +1,8 @@
+services:
+  mimi-worker-image:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.worker
+    image: mimi-worker:latest
+    profiles:
+      - worker-build

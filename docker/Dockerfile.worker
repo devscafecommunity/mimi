@@ -1,0 +1,13 @@
+# MiMi isolated skill worker (M3.1.2)
+FROM alpine:3.20
+
+RUN apk add --no-cache bash ca-certificates curl tini \
+    && adduser -D -u 10001 worker
+
+COPY docker/worker-entry.sh /entrypoint.sh
+RUN chmod 755 /entrypoint.sh
+
+USER worker
+WORKDIR /workspace
+ENTRYPOINT ["/sbin/tini", "--", "/entrypoint.sh"]
+CMD ["echo", "mimi-worker-ready"]

@@ -54,7 +54,7 @@ Utilizamos um **Message Bus (Zenoh/NATS)** com serialização **FlatBuffers (Zer
 * **Scripting/Plugins:** Rhai (Embedded), WASM (Sandboxed Binaries)
 * **Communication:** Zenoh / ZeroMQ (Message Bus)
 * **Virtualization:** Docker (Isolated Workers)
-* **AI Adapters:** Gemini API, Ollama (Local LLM)
+* **AI Adapters:** Ollama Cloud (default), Gemini API (optional fallback)
 
 ---
 

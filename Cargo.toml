@@ -1,5 +1,5 @@
 [workspace]
-members = ["crates/mimi-core", "crates/mimi-cli"]
+members = ["crates/mimi-core", "crates/mimi-cli", "crates/ryzu-runtime"]
 resolver = "2"
 
 [workspace.package]

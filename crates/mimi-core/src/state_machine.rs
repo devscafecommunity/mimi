@@ -100,6 +100,13 @@ impl StateManager {
         *self.state.lock().unwrap()
     }
 
+    /// Restore orchestrator state from Pandora checkpoint (bypasses FSM validation).
+    pub fn restore_state(&self, state: MimiState) {
+        let mut guard = self.state.lock().unwrap();
+        log::info!("Restoring Mimi state from checkpoint: {:?}", state);
+        *guard = state;
+    }
+
     /// Enqueue task with priority ordering
     pub fn enqueue_task(&self, task: Task) -> Result<()> {
         let mut queue = self.task_queue.lock().unwrap();
@@ -222,7 +229,7 @@ impl StateManager {
     }
 
     /// Execute task in blocking mode (for fast operations <500ms)
-    async fn execute_blocking_task(&self, task: Task) -> Result<()> {
+    pub(crate) async fn execute_blocking_task(&self, task: Task) -> Result<()> {
         self.transition_to(MimiState::Executing)?;
 
         let task_name = task.name.clone();
@@ -253,7 +260,7 @@ impl StateManager {
     }
 
     /// Execute task in async mode (for long operations >500ms)
-    async fn execute_async_task(&self, task: Task) -> Result<()> {
+    pub(crate) async fn execute_async_task(&self, task: Task) -> Result<()> {
         self.transition_to(MimiState::Executing)?;
 
         let task_name = task.name.clone();
@@ -580,6 +587,7 @@ pub struct CircuitBreaker {
     failure_threshold: u32,
     timeout: Duration,
     last_failure_time: Arc<Mutex<Option<Instant>>>,
+    metrics: Arc<crate::circuit_metrics::CircuitBreakerMetrics>,
 }
 
 impl CircuitBreaker {
@@ -591,7 +599,24 @@ impl CircuitBreaker {
             failure_threshold,
             timeout,
             last_failure_time: Arc::new(Mutex::new(None)),
+            metrics: Arc::new(crate::circuit_metrics::CircuitBreakerMetrics::default()),
         }
+    }
+
+    pub fn metrics(&self) -> &crate::circuit_metrics::CircuitBreakerMetrics {
+        &self.metrics
+    }
+
+    pub fn snapshot(&self) -> crate::circuit_metrics::CircuitBreakerSnapshot {
+        self.metrics.snapshot(self.state())
+    }
+
+    pub fn check_sustained_open_alert(&self, label: &str) -> bool {
+        self.metrics.maybe_alert_sustained_open(
+            self.state(),
+            label,
+            crate::circuit_metrics::SUSTAINED_OPEN_ALERT_MS,
+        )
     }
 
     /// Get current circuit state
@@ -604,7 +629,9 @@ impl CircuitBreaker {
             if let Some(time) = *last_failure {
                 if time.elapsed() >= self.timeout {
                     let mut state_guard = self.state.lock().unwrap();
+                    self.metrics.on_state_transition(CircuitState::Open, CircuitState::HalfOpen);
                     *state_guard = CircuitState::HalfOpen;
+                    self.metrics.record_half_open_probe();
                     return CircuitState::HalfOpen;
                 }
             }
@@ -617,8 +644,11 @@ impl CircuitBreaker {
     pub fn record_success(&self) {
         let current_state = self.state();
 
+        self.metrics.record_success();
+
         if current_state == CircuitState::HalfOpen {
             let mut state = self.state.lock().unwrap();
+            self.metrics.on_state_transition(CircuitState::HalfOpen, CircuitState::Closed);
             *state = CircuitState::Closed;
 
             let mut count = self.failure_count.lock().unwrap();
@@ -628,8 +658,14 @@ impl CircuitBreaker {
         }
     }
 
+    pub fn record_fallback(&self) {
+        self.metrics.record_fallback();
+    }
+
     /// Record failed execution
     pub fn record_failure(&self) {
+        self.metrics.record_failure();
+
         let mut count = self.failure_count.lock().unwrap();
         *count += 1;
 
@@ -638,6 +674,10 @@ impl CircuitBreaker {
 
         if *count >= self.failure_threshold {
             let mut state = self.state.lock().unwrap();
+            let from = *state;
+            if from != CircuitState::Open {
+                self.metrics.on_state_transition(from, CircuitState::Open);
+            }
             *state = CircuitState::Open;
 
             log::warn!(

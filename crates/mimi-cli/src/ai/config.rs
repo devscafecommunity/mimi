@@ -47,6 +47,11 @@ impl AdapterConfig {
                         "ollama adapter requires endpoint".to_string(),
                     ));
                 }
+                if is_ollama_cloud_endpoint(self.endpoint.as_deref()) && self.api_key.is_none() {
+                    return Err(super::error::AdapterError::ConfigError(
+                        "ollama cloud requires OLLAMA_API_KEY (or MIMI_API_KEY)".to_string(),
+                    ));
+                }
             },
             _ => {},
         }
@@ -59,8 +64,26 @@ impl AdapterConfig {
         let adapter_type =
             std::env::var("MIMI_ADAPTER_TYPE").unwrap_or_else(|_| "ollama".to_string());
 
-        let api_key = std::env::var("MIMI_API_KEY").ok();
-        let endpoint = std::env::var("MIMI_ADAPTER_ENDPOINT").ok();
+        let api_key = match adapter_type.as_str() {
+            "ollama" => std::env::var("OLLAMA_API_KEY")
+                .or_else(|_| std::env::var("MIMI_API_KEY"))
+                .ok(),
+            _ => std::env::var("MIMI_API_KEY")
+                .or_else(|_| std::env::var("GEMINI_API_KEY"))
+                .ok(),
+        };
+
+        let endpoint = std::env::var("MIMI_ADAPTER_ENDPOINT")
+            .or_else(|_| std::env::var("OLLAMA_ENDPOINT"))
+            .ok()
+            .or_else(|| {
+                if adapter_type == "ollama" {
+                    Some("https://ollama.com".to_string())
+                } else {
+                    None
+                }
+            });
+
         let timeout_ms = std::env::var("MIMI_ADAPTER_TIMEOUT")
             .ok()
             .and_then(|v| v.parse::<u64>().ok())
@@ -71,7 +94,15 @@ impl AdapterConfig {
             .and_then(|v| v.parse::<u32>().ok())
             .unwrap_or(3);
 
-        let model = std::env::var("MIMI_MODEL").unwrap_or_else(|_| "gpt-3.5-turbo".to_string());
+        let model = std::env::var("OLLAMA_MODEL")
+            .or_else(|_| std::env::var("MIMI_MODEL"))
+            .unwrap_or_else(|_| {
+                if adapter_type == "ollama" {
+                    "gemma4:31b".to_string()
+                } else {
+                    "gemini-pro".to_string()
+                }
+            });
 
         let config = AdapterConfig {
             adapter_type,
@@ -85,4 +116,10 @@ impl AdapterConfig {
         config.validate()?;
         Ok(config)
     }
+}
+
+fn is_ollama_cloud_endpoint(endpoint: Option<&str>) -> bool {
+    endpoint
+        .map(|e| e.contains("ollama.com"))
+        .unwrap_or(false)
 }

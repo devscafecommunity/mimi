@@ -1,7 +1,7 @@
 # M2: Palácio da Memória (Pandora)
 
 > **Milestone Objetivo:** Implementar memória em grafos com contexto térmico  
-> **Status:** 🟡 Bloqueado por M1  
+> **Status:** 🟢 MVP completo (aceitação em `docs/M2.7-ACCEPTANCE.md`)  
 > **Duração Estimada:** 8-10 semanas  
 > **Dependências:** M1 (Message Bus + Mimi Core)  
 
@@ -416,17 +416,17 @@ impl L1Cache {
 
 ## Critérios de Aceitação Finais (M2 DoD)
 
-✅ **Milestone 2 Completo quando:**
+✅ **Milestone 2 Completo quando:** (validação: [`docs/M2.7-ACCEPTANCE.md`](../../docs/M2.7-ACCEPTANCE.md))
 
-- [ ] Neo4j rodando em container
-- [ ] Pandora conectada via Bolt (C++)
-- [ ] Heatmap implementado (fórmula + query Cypher)
-- [ ] Mimi consulta Pandora antes de responder
-- [ ] LRU Cache L1 funcionando (hit rate > 70%)
-- [ ] Queries Neo4j < 50ms em média
-- [ ] Tests de integração passam
-- [ ] State persistence funciona
-- [ ] Documentação: Schema + Cypher queries + benchmarks
+- [x] Neo4j rodando em container
+- [x] Pandora via Bolt (`neo4rs` Rust + camada C++ `bolt_client` testada)
+- [x] Heatmap implementado (fórmula + query Cypher / BFS)
+- [x] Mimi consulta Pandora antes de responder (`query` / `exec`)
+- [x] LRU Cache L1 (hit rate ≥ 70% em teste de aceitação)
+- [x] Queries Neo4j &lt; 50ms mediana touch (teste `--ignored` com Neo4j local)
+- [x] Testes de integração (Rust + C++ contract)
+- [x] State persistence (`MimiCheckpoint` + flush/checkpoint periódico)
+- [x] Documentação schema + benchmarks (`M2.2`–`M2.7`, `MIMI_BENCH_NEO4J`)
 
 ---
 

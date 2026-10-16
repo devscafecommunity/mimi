@@ -176,6 +176,9 @@ pub enum Commands {
         subcommand: DebugSubcommand,
     },
 
+    /// Long-running daemon (Pandora flush + Odlaguna supervisor loop)
+    Daemon,
+
     /// Start interactive REPL mode
     Repl {
         /// History file location
@@ -284,5 +287,46 @@ pub enum DebugSubcommand {
     ValidateIntent {
         /// Text to parse
         text: String,
+    },
+
+    /// Circuit breaker metrics (Pandora + AI; shared process state)
+    CircuitStats,
+
+    /// Priscilla advisory critique (T3.5 baseline; does not block execution)
+    PriscillaCritique {
+        /// Task intent text
+        #[arg(long)]
+        text: String,
+
+        /// Estimated token budget
+        #[arg(long, default_value_t = 2048)]
+        tokens: u32,
+
+        /// Optional skill id from Pandora
+        #[arg(long)]
+        skill_id: Option<String>,
+
+        /// Query Pandora failure patterns (T3.6)
+        #[arg(long)]
+        with_patterns: bool,
+
+        /// Failure pattern lookback window in hours
+        #[arg(long, default_value_t = 72)]
+        pattern_window: u32,
+    },
+
+    /// Run an isolated skill container (Ryzu + Odlaguna; Docker with `docker-supervision`)
+    SkillRun {
+        /// Container image (default: mimi-worker:latest)
+        #[arg(long, default_value = "mimi-worker:latest")]
+        image: String,
+
+        /// Command passed to the worker entrypoint
+        #[arg(long = "cmd", required = true)]
+        command: Vec<String>,
+
+        /// Deadline in seconds
+        #[arg(long, default_value_t = 30)]
+        timeout: u32,
     },
 }

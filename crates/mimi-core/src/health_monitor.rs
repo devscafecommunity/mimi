@@ -153,6 +153,11 @@ impl HealthMonitor {
                 "Published unhealthy metric to Pandora: {:?}",
                 metric.metric_type
             );
+        } else {
+            let context_id = format!("component:{}", metric.component_name);
+            pandora
+                .touch_context(&context_id, Some(&metric.component_name))
+                .await?;
         }
 
         Ok(())

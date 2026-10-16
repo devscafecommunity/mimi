@@ -12,7 +12,7 @@ RUN apt-get update && apt-get install -y \
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 
-RUN cargo build --release --package mimi-core
+RUN cargo build --release --package mimi-cli
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim as runtime
@@ -24,13 +24,13 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-COPY --from=builder /build/target/release/mimi-core /app/mimi-core
+COPY --from=builder /build/target/release/mimi /app/mimi
 
 ENV RUST_LOG=info
 
 EXPOSE 8080
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD /app/mimi --version || exit 1
 
-CMD ["/app/mimi-core"]
+CMD ["/app/mimi", "--help"]

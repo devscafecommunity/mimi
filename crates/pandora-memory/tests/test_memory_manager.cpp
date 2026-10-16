@@ -8,7 +8,10 @@ TEST_CASE("MemoryManager initialization", "[memory_manager]") {
     bool result = mgr.initialize("bolt://localhost:7687", "neo4j", "password");
     REQUIRE(result);
     REQUIRE(mgr.is_connected());
-    
+    REQUIRE(mgr.l1_size() == 0);
+    REQUIRE(mgr.heatmap_size() == 0);
+    REQUIRE(mgr.queries_executed() >= 1);
+
     result = mgr.shutdown();
     REQUIRE(result);
     REQUIRE(!mgr.is_connected());
